@@ -36,7 +36,7 @@ export function GlucoseGauge() {
   });
 
   return (
-    <div className="p-5 flex flex-col gap-1" style={{ height: "100%" }}>
+    <div className="bg-card rounded-2xl p-5 flex flex-col gap-1" style={{ backdropFilter: "blur(12px)", border: "1px solid rgba(255,255,255,0.6)" }}>
       <div className="flex items-center justify-between">
         <span style={{ fontSize: "0.85rem", fontWeight: 500, color: "#1a2030" }}>Glucose</span>
         <span style={{ fontSize: "1.1rem", fontWeight: 600, color: "#e53e3e" }}>-5%</span>
@@ -66,9 +66,9 @@ export function GlucoseGauge() {
           {ticks.map((t, i) => (
             <line key={i} x1={t.x1} y1={t.y1} x2={t.x2} y2={t.y2} stroke="#c8ccd4" strokeWidth={1} />
           ))}
-          <text x={cx} y={cy - 2} textAnchor="middle" style={{ fontSize: 13, fontWeight: 700, fill: "#1a2030", fontFamily: "Poppins" }}>{value}</text>
-          <text x={cx} y={cy + 10} textAnchor="middle" style={{ fontSize: 7, fill: "#9aa5b4", fontFamily: "Poppins" }}>mg/dL</text>
-          <text x={cx} y={cy + 20} textAnchor="middle" style={{ fontSize: 7, fill: "#9aa5b4", fontFamily: "Poppins" }}>68% Capacity</text>
+          <text x={cx} y={cy - 2} textAnchor="middle" style={{ fontSize: 13, fontWeight: 700, fill: "#1a2030", fontFamily: "DM Sans" }}>{value}</text>
+          <text x={cx} y={cy + 10} textAnchor="middle" style={{ fontSize: 7, fill: "#9aa5b4", fontFamily: "DM Sans" }}>mg/dL</text>
+          <text x={cx} y={cy + 20} textAnchor="middle" style={{ fontSize: 7, fill: "#9aa5b4", fontFamily: "DM Sans" }}>68% Capacity</text>
         </svg>
       </div>
     </div>

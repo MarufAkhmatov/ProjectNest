@@ -9,7 +9,7 @@ const data = [
 
 export function HRVChart() {
   return (
-    <div className="p-5 flex flex-col gap-2" style={{ height: "100%" }}>
+    <div className="bg-card rounded-2xl p-5 flex flex-col gap-2" style={{ backdropFilter: "blur(12px)", border: "1px solid rgba(255,255,255,0.6)" }}>
       <div className="flex items-center justify-between">
         <span style={{ fontSize: "0.85rem", fontWeight: 500, color: "#1a2030" }}>HRV</span>
         <motion.span

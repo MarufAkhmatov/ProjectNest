@@ -35,7 +35,7 @@ export function HealthcareProviders() {
   );
 
   return (
-    <div className="p-5 flex flex-col gap-4" style={{ height: "100%" }}>
+    <div className="bg-card rounded-2xl p-5 flex flex-col gap-4" style={{ backdropFilter: "blur(12px)", border: "1px solid rgba(255,255,255,0.6)" }}>
       <div className="flex items-center justify-between">
         <span style={{ fontSize: "0.9rem", fontWeight: 600, color: "#1a2030" }}>Healthcare Providers</span>
         <div className="flex gap-2">

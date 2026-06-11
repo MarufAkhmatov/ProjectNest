@@ -133,7 +133,7 @@ export function AriaPanel() {
             style={{
               flex: 1, background: "none", border: "none", outline: "none",
               fontSize: "0.75rem", color: "rgba(255,255,255,0.85)",
-              fontFamily: "Poppins, sans-serif",
+              fontFamily: "DM Sans, sans-serif",
             }}
           />
           <button style={{ background: "none", border: "none", cursor: "pointer" }}>
