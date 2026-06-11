@@ -17,8 +17,9 @@ _ALIASES = {
              "тип задачи", "тип запроса", "тип", "tur", "masala turi"],
     "status": ["status", "статус", "holat"],
     "summary": ["summary", "title", "тема", "краткое описание", "резюме", "mavzu", "qisqacha"],
-    "pm": ["pm", "project manager", "менеджер проекта", "menejer",
-           "assignee", "исполнитель", "ответственный", "ijrochi", "mas'ul", "lead"],
+    # PM is graded STRICTLY from the custom "PM" field — never the assignee.
+    "pm": ["pm", "project manager", "менеджер проекта", "менеджер", "menejer", "loyiha menejeri"],
+    "assignee": ["assignee", "исполнитель", "ответственный", "ijrochi", "mas'ul"],
     "reporter": ["reporter", "creator", "автор", "создатель", "muallif"],
     "created": ["created", "created date", "creation date",
                 "создано", "дата создания", "yaratilgan", "yaratilgan sana"],
@@ -49,6 +50,7 @@ _UNASSIGNED = {"не назначен", "не назначено", "unassigned",
 
 
 def _pm(row: dict) -> str:
+    """Strictly the custom 'PM' field. Empty -> 'Unassigned' (no assignee fallback)."""
     v = _get(row, "pm").strip()
     if v.lower() in _UNASSIGNED:
         return "Unassigned"
@@ -225,6 +227,7 @@ def normalize_rows(rows: list[dict], default_project: str = "") -> list[dict]:
             "status_group": status_group(status_c),
             "summary": _get(row, "summary"),
             "pm": _pm(row),
+            "assignee": _get(row, "assignee"),
             "reporter": _get(row, "reporter"),
             "created": _iso(created),
             "resolved": _iso(resolved),

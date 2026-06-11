@@ -57,7 +57,7 @@ def main():
         key = f"{proj}-{100 + p}"
         rows.append({
             "Issue key": key, "Issue Type": "Epic", "Status": status,
-            "Summary": f"Portfolio Project {key}", "Assignee": pm, "Reporter": "PMO Office",
+            "Summary": f"Portfolio Project {key}", "Assignee": pm, "PM": pm, "Reporter": "PMO Office",
             "Created": start.isoformat(), "Resolved": resolved or "",
             "Due Date": (start + dt.timedelta(days=random.randint(120, 400))).isoformat(),
             "Project": proj, "Epic Link": "", "Story Points": random.choice([8, 13, 21, 34]),
@@ -75,7 +75,7 @@ def main():
                 blocks = f"{proj}-{500 + p * 10 + (c + 1)}"
             rows.append({
                 "Issue key": ckey, "Issue Type": ctype, "Status": cstatus,
-                "Summary": f"{ctype} for {key}", "Assignee": pm, "Reporter": pm,
+                "Summary": f"{ctype} for {key}", "Assignee": pm, "PM": pm, "Reporter": pm,
                 "Created": cstart.isoformat(), "Resolved": cres or "",
                 "Due Date": (cstart + dt.timedelta(days=random.randint(20, 120))).isoformat(),
                 "Project": proj, "Epic Link": key, "Story Points": random.choice([1, 2, 3, 5, 8]),
