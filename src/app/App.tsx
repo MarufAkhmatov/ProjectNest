@@ -1,8 +1,9 @@
 import { useState } from "react";
-import { motion, AnimatePresence } from "motion/react";
+import { motion } from "motion/react";
 import {
-  Home, Calendar, Users, BarChart2, Database,
-  Search, Settings, Bell, TrendingUp, ArrowUpRight,
+  Calendar, Users, LayoutGrid, FileText,
+  Search, Settings, Bell, ArrowUpRight, ArrowDownRight,
+  ChevronDown, MessageCircle, Sparkles,
 } from "lucide-react";
 import { WellnessChart } from "./components/WellnessChart";
 import { StressRecoveryChart } from "./components/StressRecoveryChart";
@@ -13,184 +14,223 @@ import { SuggestedSteps } from "./components/SuggestedSteps";
 import { HealthcareProviders } from "./components/HealthcareProviders";
 import { AriaPanel } from "./components/AriaPanel";
 
-const navItems = [
-  { icon: Home, label: "Dashboard", active: true },
+/* ---------- shared glass tokens ---------- */
+const glassPanel: React.CSSProperties = {
+  background: "rgba(255,255,255,0.42)",
+  backdropFilter: "blur(22px)",
+  WebkitBackdropFilter: "blur(22px)",
+  border: "1px solid rgba(255,255,255,0.55)",
+  boxShadow:
+    "0 8px 28px rgba(31,45,61,0.08), inset 0 1px 1px rgba(255,255,255,0.65)",
+};
+
+const glassCircle: React.CSSProperties = {
+  background: "rgba(255,255,255,0.32)",
+  border: "1px solid rgba(255,255,255,0.5)",
+  boxShadow:
+    "inset 0 1px 2px rgba(255,255,255,0.5), 0 3px 8px rgba(31,45,61,0.06)",
+  backdropFilter: "blur(14px)",
+  WebkitBackdropFilter: "blur(14px)",
+};
+
+const navIcons = [
   { icon: Calendar, label: "Calendar" },
   { icon: Users, label: "Patients" },
-  { icon: BarChart2, label: "Analytics" },
-  { icon: Database, label: "Records" },
+  { icon: LayoutGrid, label: "Records" },
+  { icon: FileText, label: "Documents" },
 ];
 
-function Sparkline({ up = true }: { up?: boolean }) {
-  const h = up
-    ? [6, 4, 7, 5, 8, 6, 9, 7, 10]
-    : [10, 9, 8, 7, 9, 6, 8, 5, 7];
-  const max = Math.max(...h);
-  const pts = h.map((v, i) => `${(i / (h.length - 1)) * 40},${12 - (v / max) * 10}`).join(" ");
+/* ---------- equalizer-style sparkline ---------- */
+function BarSparkline({ up = true }: { up?: boolean }) {
+  const bars = up
+    ? [5, 9, 6, 12, 8, 14, 9, 16, 11, 7, 13, 9, 6, 10, 7]
+    : [14, 10, 13, 8, 15, 9, 12, 7, 13, 9, 6, 11, 8, 12, 7];
+  const max = Math.max(...bars);
   return (
-    <svg width="40" height="14" viewBox="0 0 40 14">
-      <polyline
-        points={pts}
-        fill="none"
-        stroke={up ? "#2d7a5f" : "#e53e3e"}
-        strokeWidth={1.5}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
+    <div style={{ display: "flex", alignItems: "flex-end", gap: 1.5, height: 30 }}>
+      {bars.map((b, i) => (
+        <motion.div
+          key={i}
+          initial={{ height: 0 }}
+          animate={{ height: `${(b / max) * 100}%` }}
+          transition={{ duration: 0.5, delay: i * 0.025, ease: "easeOut" }}
+          style={{
+            width: 2.5,
+            borderRadius: 2,
+            background: "#2a3344",
+            opacity: 0.35 + (b / max) * 0.6,
+          }}
+        />
+      ))}
+    </div>
   );
 }
 
-function StatCard({ value, label, delta, up }: { value: string; label: string; delta?: string; up?: boolean }) {
+/* ---------- stat (no card behind — sits on the glass surface) ---------- */
+function StatCard({
+  value, label, up,
+}: { value: string; label: string; up: boolean }) {
   return (
     <motion.div
-      initial={{ opacity: 0, y: -10 }}
+      initial={{ opacity: 0, y: -8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4 }}
-      style={{
-        display: "flex", alignItems: "center", gap: 10,
-        background: "rgba(255,255,255,0.7)",
-        borderRadius: 14, padding: "8px 14px",
-        border: "1px solid rgba(255,255,255,0.7)",
-        backdropFilter: "blur(10px)",
-        minWidth: 160,
-      }}
+      style={{ display: "flex", alignItems: "center", gap: 16 }}
     >
       <div>
-        <div className="flex items-center gap-1">
-          <span style={{ fontSize: "1.2rem", fontWeight: 700, color: "#1a2030" }}>{value}</span>
-          {delta && (
-            <span style={{
-              display: "flex", alignItems: "center", gap: 1,
-              fontSize: "0.65rem", fontWeight: 600,
-              color: up ? "#2d7a5f" : "#e53e3e",
-              background: up ? "#e8f4ef" : "#fce8e8",
-              borderRadius: 6, padding: "1px 5px",
-            }}>
-              <ArrowUpRight size={9} style={{ transform: up ? "none" : "rotate(90deg)" }} />
-              {delta}
-            </span>
-          )}
+        <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+          <span style={{ fontSize: "1.7rem", fontWeight: 700, color: "#1a2030", letterSpacing: "-0.5px", lineHeight: 1 }}>
+            {value}
+          </span>
+          <span
+            style={{
+              display: "flex", alignItems: "center", justifyContent: "center",
+              width: 19, height: 19, borderRadius: 6,
+              background: up ? "#d8efe0" : "#fbe1e1",
+              color: up ? "#1f9d57" : "#e53e3e",
+            }}
+          >
+            {up ? <ArrowUpRight size={12} /> : <ArrowDownRight size={12} />}
+          </span>
         </div>
-        <div style={{ fontSize: "0.65rem", color: "#9aa5b4" }}>{label}</div>
+        <div style={{ fontSize: "0.72rem", color: "#8a97a6", marginTop: 4 }}>{label}</div>
       </div>
-      <Sparkline up={up} />
+      <BarSparkline up={up} />
     </motion.div>
   );
 }
 
 export default function App() {
-  const [activeNav, setActiveNav] = useState("Dashboard");
+  const [activeNav] = useState("Dashboard");
 
   return (
     <div
       style={{
         width: "100%",
         minHeight: "100vh",
-        background: "linear-gradient(145deg, #d0d8e4 0%, #c8d4e0 40%, #bfcdd8 100%)",
+        background:
+          "linear-gradient(140deg, #e6ece9 0%, #dde6e5 45%, #d6e1e1 100%)",
         fontFamily: "'DM Sans', sans-serif",
         display: "flex",
         flexDirection: "column",
       }}
     >
-      {/* TOP NAV */}
+      {/* ===================== TOP NAV ===================== */}
       <header
         style={{
-          display: "flex", alignItems: "center", gap: 12,
-          padding: "12px 24px",
-          background: "rgba(255,255,255,0.45)",
-          backdropFilter: "blur(16px)",
-          borderBottom: "1px solid rgba(255,255,255,0.5)",
+          display: "flex", alignItems: "center", gap: 16,
+          padding: "18px 30px",
           position: "sticky", top: 0, zIndex: 50,
         }}
       >
         {/* Logo */}
-        <div className="flex items-center gap-2" style={{ marginRight: 16 }}>
-          <div style={{
-            width: 32, height: 32, borderRadius: "50%",
-            background: "linear-gradient(135deg, #2d7a5f, #9b59b6)",
-            display: "flex", alignItems: "center", justifyContent: "center",
-          }}>
-            <span style={{ fontSize: "0.7rem", fontWeight: 700, color: "#fff" }}>CN</span>
+        <div style={{ display: "flex", alignItems: "center", gap: 11 }}>
+          <div
+            style={{
+              width: 40, height: 40, borderRadius: "50%",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              ...glassCircle,
+            }}
+          >
+            <Sparkles size={18} color="#2d7a5f" />
           </div>
-          <span style={{ fontSize: "0.9rem", fontWeight: 600, color: "#1a2030" }}>CareNest</span>
+          <span style={{ fontSize: "1.1rem", fontWeight: 600, color: "#1a2030" }}>CareNest</span>
         </div>
-
-        {/* Nav items */}
-        <nav className="flex items-center gap-1">
-          {navItems.map(({ icon: Icon, label }) => (
-            <button
-              key={label}
-              onClick={() => setActiveNav(label)}
-              style={{
-                display: "flex", alignItems: "center", gap: 5,
-                padding: "6px 14px",
-                borderRadius: 10,
-                border: "none",
-                background: activeNav === label ? "rgba(255,255,255,0.85)" : "transparent",
-                cursor: "pointer",
-                fontSize: "0.78rem",
-                fontWeight: activeNav === label ? 600 : 400,
-                color: activeNav === label ? "#1a2030" : "#6b7a8d",
-                transition: "all 0.2s",
-                boxShadow: activeNav === label ? "0 2px 8px rgba(0,0,0,0.08)" : "none",
-              }}
-            >
-              <Icon size={14} />
-              {label}
-              {activeNav === label && (
-                <span style={{ width: 5, height: 5, borderRadius: "50%", background: "#2d7a5f", marginLeft: 2 }} />
-              )}
-            </button>
-          ))}
-        </nav>
 
         <div style={{ flex: 1 }} />
 
-        {/* Search */}
-        <div style={{
-          display: "flex", alignItems: "center", gap: 8,
-          background: "rgba(255,255,255,0.7)",
-          border: "1px solid rgba(255,255,255,0.8)",
-          borderRadius: 12,
-          padding: "6px 14px",
-          width: 180,
-        }}>
-          <Search size={13} color="#9aa5b4" />
-          <input
-            placeholder="Search..."
+        {/* Center neo-glass nav */}
+        <div
+          style={{
+            display: "flex", alignItems: "center", gap: 6,
+            padding: 6, borderRadius: 999,
+            ...glassPanel,
+          }}
+        >
+          {/* Active Dashboard pill */}
+          <button
             style={{
-              border: "none", outline: "none", background: "transparent",
-              fontSize: "0.78rem", color: "#1a2030", fontFamily: "DM Sans, sans-serif", width: "100%",
+              display: "flex", alignItems: "center", gap: 9,
+              padding: "8px 16px 8px 8px", borderRadius: 999,
+              background: "#ffffff", border: "none", cursor: "pointer",
+              boxShadow: "0 3px 12px rgba(31,45,61,0.12)",
+              fontSize: "0.83rem", fontWeight: 600, color: "#1a2030",
             }}
-          />
+          >
+            <span style={{
+              width: 26, height: 26, borderRadius: "50%",
+              background: "#eef3f1", display: "flex",
+              alignItems: "center", justifyContent: "center",
+            }}>
+              <MessageCircle size={14} color="#2d7a5f" />
+            </span>
+            Dashboard
+            <ChevronDown size={14} color="#9aa5b4" />
+          </button>
+
+          {navIcons.map(({ icon: Icon, label }) => (
+            <button
+              key={label}
+              title={label}
+              style={{
+                width: 40, height: 40, borderRadius: "50%",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                cursor: "pointer", color: "#5a6b7d",
+                ...glassCircle,
+              }}
+            >
+              <Icon size={17} />
+            </button>
+          ))}
         </div>
 
-        {/* Icons */}
-        <button style={{ width: 34, height: 34, borderRadius: 10, background: "rgba(255,255,255,0.7)", border: "1px solid rgba(255,255,255,0.8)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
-          <Settings size={15} color="#6b7a8d" />
-        </button>
-        <button style={{ width: 34, height: 34, borderRadius: 10, background: "rgba(255,255,255,0.7)", border: "1px solid rgba(255,255,255,0.8)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", position: "relative" }}>
-          <Bell size={15} color="#6b7a8d" />
-          <span style={{ position: "absolute", top: 6, right: 6, width: 7, height: 7, borderRadius: "50%", background: "#e53e3e", border: "1.5px solid #fff" }} />
-        </button>
-        <img
-          src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=56&h=56&fit=crop&auto=format"
-          alt="User"
-          style={{ width: 34, height: 34, borderRadius: "50%", objectFit: "cover", border: "2px solid rgba(255,255,255,0.9)", cursor: "pointer" }}
-        />
+        <div style={{ flex: 1 }} />
+
+        {/* Search + actions */}
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div
+            style={{
+              display: "flex", alignItems: "center", gap: 9,
+              borderRadius: 999, padding: "9px 18px", width: 220,
+              ...glassPanel,
+            }}
+          >
+            <Search size={15} color="#9aa5b4" />
+            <input
+              placeholder="Search..."
+              style={{
+                border: "none", outline: "none", background: "transparent",
+                fontSize: "0.82rem", color: "#1a2030",
+                fontFamily: "DM Sans, sans-serif", width: "100%",
+              }}
+            />
+          </div>
+
+          <button style={{ width: 42, height: 42, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", ...glassCircle }}>
+            <Settings size={17} color="#5a6b7d" />
+          </button>
+          <button style={{ width: 42, height: 42, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", position: "relative", ...glassCircle }}>
+            <Bell size={17} color="#5a6b7d" />
+            <span style={{ position: "absolute", top: 8, right: 9, width: 7, height: 7, borderRadius: "50%", background: "#e53e3e", border: "1.5px solid #eef2f0" }} />
+          </button>
+          <img
+            src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=64&h=64&fit=crop&auto=format"
+            alt="User"
+            style={{ width: 42, height: 42, borderRadius: "50%", objectFit: "cover", border: "2px solid rgba(255,255,255,0.8)", cursor: "pointer" }}
+          />
+        </div>
       </header>
 
-      {/* MAIN */}
-      <main style={{ flex: 1, padding: "20px 24px", display: "flex", flexDirection: "column", gap: 16 }}>
+      {/* ===================== MAIN ===================== */}
+      <main style={{ flex: 1, padding: "8px 30px 30px", display: "flex", flexDirection: "column", gap: 18 }}>
 
         {/* Hero + Stats row */}
-        <div style={{ display: "flex", alignItems: "flex-start", gap: 16, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", alignItems: "flex-start", gap: 24, flexWrap: "wrap" }}>
           <div>
             <motion.h1
               initial={{ opacity: 0, y: -6 }}
               animate={{ opacity: 1, y: 0 }}
-              style={{ fontSize: "1.8rem", fontWeight: 700, color: "#1a2030", margin: 0 }}
+              style={{ fontSize: "2rem", fontWeight: 700, color: "#1a2030", margin: 0, letterSpacing: "-0.5px" }}
             >
               Dashboard Overview
             </motion.h1>
@@ -198,16 +238,16 @@ export default function App() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.15 }}
-              style={{ fontSize: "0.8rem", color: "#6b7a8d", margin: "2px 0 0 0" }}
+              style={{ fontSize: "0.82rem", color: "#7a8796", margin: "4px 0 0 0" }}
             >
               Welcome back! Here's what's happening with your clients today.
             </motion.p>
           </div>
           <div style={{ flex: 1 }} />
-          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-            <StatCard value="1,360" label="Total Appointments" delta="↑" up />
-            <StatCard value="2,654" label="Active Patients" delta="↑" up />
-            <StatCard value="54" label="Critical Alerts" delta="!" up={false} />
+          <div style={{ display: "flex", gap: 34, flexWrap: "wrap", alignItems: "center", paddingTop: 4 }}>
+            <StatCard value="1,360" label="Total Appointments" up />
+            <StatCard value="2,654" label="Active Patients" up />
+            <StatCard value="54" label="Critical Alerts" up={false} />
           </div>
         </div>
 
@@ -215,7 +255,7 @@ export default function App() {
         <div style={{
           display: "grid",
           gridTemplateColumns: "1.3fr 1.15fr 1fr",
-          gap: 14,
+          gap: 16,
           alignItems: "stretch",
         }}>
           <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} style={{ height: "100%" }}>
@@ -226,10 +266,10 @@ export default function App() {
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.18 }}
-            style={{ display: "flex", flexDirection: "column", gap: 14 }}
+            style={{ display: "flex", flexDirection: "column", gap: 16 }}
           >
             <StressRecoveryChart />
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
               <HRVChart />
               <GlucoseGauge />
             </div>
@@ -244,7 +284,7 @@ export default function App() {
         <div style={{
           display: "grid",
           gridTemplateColumns: "1.4fr 1.8fr 1.1fr",
-          gap: 14,
+          gap: 16,
           alignItems: "start",
         }}>
           <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}>
