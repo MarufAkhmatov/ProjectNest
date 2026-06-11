@@ -33,6 +33,20 @@ const glassCircle: React.CSSProperties = {
   WebkitBackdropFilter: "blur(14px)",
 };
 
+/* big frosted content panel that holds the data sections */
+const bigPanel: React.CSSProperties = {
+  background: "rgba(247,250,250,0.72)",
+  backdropFilter: "blur(26px)",
+  WebkitBackdropFilter: "blur(26px)",
+  border: "1px solid rgba(255,255,255,0.6)",
+  borderRadius: 28,
+  boxShadow:
+    "0 18px 50px rgba(31,55,75,0.14), inset 0 1px 1px rgba(255,255,255,0.75)",
+  overflow: "hidden",
+};
+
+const divider = "1px solid rgba(90,115,130,0.13)";
+
 const navIcons = [
   { icon: Calendar, label: "Calendar" },
   { icon: Users, label: "Patients" },
@@ -109,8 +123,8 @@ export default function App() {
         width: "100%",
         minHeight: "100vh",
         background:
-          "linear-gradient(140deg, #e6ece9 0%, #dde6e5 45%, #d6e1e1 100%)",
-        fontFamily: "'DM Sans', sans-serif",
+          "linear-gradient(155deg, #a7bccf 0%, #b6c8d8 45%, #c4d2dd 100%)",
+        fontFamily: "'Poppins', sans-serif",
         display: "flex",
         flexDirection: "column",
       }}
@@ -201,7 +215,7 @@ export default function App() {
               style={{
                 border: "none", outline: "none", background: "transparent",
                 fontSize: "0.82rem", color: "#1a2030",
-                fontFamily: "DM Sans, sans-serif", width: "100%",
+                fontFamily: "Poppins, sans-serif", width: "100%",
               }}
             />
           </div>
@@ -251,48 +265,65 @@ export default function App() {
           </div>
         </div>
 
-        {/* Row 1: Wellness + (Stress/Recovery over HRV+Glucose) + Patient Flow */}
+        {/* Row 1: ONE unified panel — Wellness | Stress/Recovery+HRV+Glucose | Patient Flow */}
+        <motion.div
+          initial={{ opacity: 0, y: 14 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.12 }}
+          style={{
+            ...bigPanel,
+            display: "grid",
+            gridTemplateColumns: "1.3fr 1.15fr 1fr",
+            alignItems: "stretch",
+          }}
+        >
+          <div style={{ borderRight: divider }}>
+            <WellnessChart />
+          </div>
+
+          <div style={{ borderRight: divider, display: "flex", flexDirection: "column" }}>
+            <div style={{ borderBottom: divider }}>
+              <StressRecoveryChart />
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", flex: 1 }}>
+              <div style={{ borderRight: divider }}>
+                <HRVChart />
+              </div>
+              <GlucoseGauge />
+            </div>
+          </div>
+
+          <div>
+            <PatientFlowChart />
+          </div>
+        </motion.div>
+
+        {/* Row 2: unified panel (Suggested Steps | Healthcare Providers) + Aria card */}
         <div style={{
           display: "grid",
-          gridTemplateColumns: "1.3fr 1.15fr 1fr",
+          gridTemplateColumns: "3.2fr 1.1fr",
           gap: 16,
           alignItems: "stretch",
         }}>
-          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} style={{ height: "100%" }}>
-            <WellnessChart />
-          </motion.div>
-
           <motion.div
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.18 }}
-            style={{ display: "flex", flexDirection: "column", gap: 16 }}
+            transition={{ delay: 0.4 }}
+            style={{
+              ...bigPanel,
+              display: "grid",
+              gridTemplateColumns: "1.4fr 1.8fr",
+              alignItems: "stretch",
+            }}
           >
-            <StressRecoveryChart />
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-              <HRVChart />
-              <GlucoseGauge />
+            <div style={{ borderRight: divider }}>
+              <SuggestedSteps />
+            </div>
+            <div>
+              <HealthcareProviders />
             </div>
           </motion.div>
 
-          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} style={{ height: "100%" }}>
-            <PatientFlowChart />
-          </motion.div>
-        </div>
-
-        {/* Row 2: Suggested Steps + Healthcare Providers + Aria */}
-        <div style={{
-          display: "grid",
-          gridTemplateColumns: "1.4fr 1.8fr 1.1fr",
-          gap: 16,
-          alignItems: "start",
-        }}>
-          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}>
-            <SuggestedSteps />
-          </motion.div>
-          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.46 }}>
-            <HealthcareProviders />
-          </motion.div>
           <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.52 }}>
             <AriaPanel />
           </motion.div>

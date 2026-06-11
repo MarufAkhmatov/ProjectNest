@@ -15,7 +15,7 @@ const segments = [
 
 export function PatientFlowChart() {
   return (
-    <div className="bg-card rounded-2xl p-5 flex flex-col gap-3" style={{ backdropFilter: "blur(12px)", border: "1px solid rgba(255,255,255,0.6)", height: "100%" }}>
+    <div className="p-5 flex flex-col gap-3" style={{ height: "100%" }}>
       <div className="flex items-center justify-between">
         <span style={{ fontSize: "0.85rem", fontWeight: 500, color: "#1a2030" }}>Patient Flow</span>
         <button style={{ background: "none", border: "none", cursor: "pointer", color: "#9aa5b4", fontSize: "1rem" }}>···</button>
