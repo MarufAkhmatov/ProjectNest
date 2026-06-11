@@ -10,11 +10,13 @@ interface PortfolioState {
   refresh: () => void;
   upload: (file: File) => Promise<any>;
   ask: (q: string) => Promise<any>;
+  pmBoard: (period: string) => Promise<any>;
 }
 
 const Ctx = createContext<PortfolioState>({
   data: null, loading: true, online: false, meta: null,
   refresh: () => {}, upload: async () => ({}), ask: async () => ({}),
+  pmBoard: async () => ({ rows: [] }),
 });
 
 export function PortfolioProvider({ children }: { children: ReactNode }) {
@@ -62,8 +64,17 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const pmBoard = useCallback(async (period: string) => {
+    try {
+      const r = await fetch(`${API}/api/pm-leaderboard?period=${encodeURIComponent(period)}`);
+      return await r.json();
+    } catch {
+      return { rows: [] };
+    }
+  }, []);
+
   return (
-    <Ctx.Provider value={{ data, loading, online, meta, refresh, upload, ask }}>
+    <Ctx.Provider value={{ data, loading, online, meta, refresh, upload, ask, pmBoard }}>
       {children}
     </Ctx.Provider>
   );

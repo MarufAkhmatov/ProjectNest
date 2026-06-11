@@ -101,6 +101,13 @@ class Handler(BaseHTTPRequestHandler):
             return self._send({"has_data": True, **p["analytics"]})
         if route == "/api/uploads":
             return self._send({"history": storage.upload_history()})
+        if route == "/api/pm-leaderboard":
+            data = storage.load_current()
+            if not data:
+                return self._send({"has_data": False, "rows": []})
+            from app.metrics import engines as E
+            period = parse_qs(urlparse(self.path).query).get("period", ["all"])[0]
+            return self._send({"has_data": True, **E.pm_leaderboard_period(data["issues"], period)})
         return self._send({"error": "not found"}, 404)
 
     def do_POST(self):

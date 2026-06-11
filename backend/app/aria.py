@@ -1,12 +1,38 @@
-"""ARIA — local Portfolio AI agent.
+"""TEMUR — local Portfolio AI agent.
 
 Grounds answers in the computed portfolio analytics (the active dataset).
-Uses Ollama if available; otherwise a deterministic rule-based fallback so the
-assistant always works offline. Provider is configurable (Ollama/Llama/Qwen/DeepSeek).
+Provider order: Anthropic Claude (if ANTHROPIC_API_KEY is set) -> Ollama (if
+running) -> deterministic grounded fallback. So the assistant always works
+offline with zero setup, and upgrades to Claude/Ollama automatically when available.
 """
+import os
 import json
 import urllib.request
 from . import config
+
+ASSISTANT_NAME = "Temur"
+
+
+def _claude(prompt: str) -> str | None:
+    key = os.environ.get("ANTHROPIC_API_KEY")
+    if not key:
+        return None
+    try:
+        req = urllib.request.Request(
+            "https://api.anthropic.com/v1/messages",
+            data=json.dumps({
+                "model": os.environ.get("CLAUDE_MODEL", "claude-3-5-haiku-latest"),
+                "max_tokens": 600,
+                "messages": [{"role": "user", "content": prompt}],
+            }).encode(),
+            headers={"Content-Type": "application/json", "x-api-key": key,
+                     "anthropic-version": "2023-06-01"},
+        )
+        with urllib.request.urlopen(req, timeout=20) as r:
+            data = json.loads(r.read())
+            return "".join(b.get("text", "") for b in data.get("content", [])).strip()
+    except Exception:
+        return None
 
 
 def _ollama(prompt: str) -> str | None:
@@ -97,13 +123,15 @@ def ask(question: str, payload: dict) -> dict:
     kpis = payload["kpis"]
     ctx = _context(analytics, kpis)
     prompt = (
-        "You are ARIA, an enterprise Portfolio Intelligence assistant. Answer the user's "
-        "question using ONLY the portfolio facts below. Be concise and specific.\n\n"
+        f"You are {ASSISTANT_NAME}, an enterprise Portfolio Intelligence assistant for a "
+        "Jira PMD/PMO portfolio. Answer the user's question using ONLY the portfolio facts "
+        "below. Be concise, specific and helpful.\n\n"
         f"PORTFOLIO FACTS:\n{ctx}\n\nQUESTION: {question}\n\nANSWER:"
     )
-    answer = _ollama(prompt)
-    source = "ollama"
+    answer, source = _claude(prompt), "claude"
     if not answer:
-        answer = _rule_based(question, analytics, kpis)
-        source = "rule_based"
-    return {"answer": answer, "source": source, "grounded_on": "active_dataset"}
+        answer, source = _ollama(prompt), "ollama"
+    if not answer:
+        answer, source = _rule_based(question, analytics, kpis), "grounded"
+    return {"answer": answer, "source": source, "assistant": ASSISTANT_NAME,
+            "grounded_on": "active_dataset"}

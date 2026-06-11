@@ -21,9 +21,16 @@ export function BestProjects() {
       <div className="flex flex-col gap-5" style={{ flex: 1, justifyContent: "center" }}>
         {projects.map((p: any, i: number) => (
           <div key={i} className="flex flex-col gap-2">
-            <div className="flex items-center justify-between">
-              <span style={{ fontSize: "0.78rem", fontWeight: 300, color: "#1a2030" }}>{p.name}</span>
-              <span style={{ fontSize: "0.72rem", fontWeight: 600, color: p.color }}>{p.pct}%</span>
+            <div className="flex items-center justify-between gap-2">
+              <div style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
+                <span style={{ fontSize: "0.76rem", fontWeight: 600, color: "#1a2030" }}>{p.key || p.name}</span>
+                {p.summary && (
+                  <span style={{ fontSize: "0.63rem", color: "#9aa5b4", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 165 }} title={p.summary}>
+                    {p.summary}
+                  </span>
+                )}
+              </div>
+              <span style={{ fontSize: "0.72rem", fontWeight: 600, color: p.color, flexShrink: 0 }}>{p.pct}%</span>
             </div>
             <div style={{ height: 6, borderRadius: 6, background: "#eef1f4", overflow: "hidden" }}>
               <motion.div

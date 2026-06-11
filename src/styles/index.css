@@ -1,3 +1,24 @@
 @import './fonts.css';
 @import './tailwind.css';
 @import './theme.css';
+
+/* Designed scrollbar for scrollable panels (PM Leaderboard, etc.) */
+.pn-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: #4EB6A6 transparent;
+}
+.pn-scroll::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.pn-scroll::-webkit-scrollbar-track {
+  background: transparent;
+  margin: 4px 0;
+}
+.pn-scroll::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #2d7a5f 0%, #4EB6A6 100%);
+  border-radius: 999px;
+}
+.pn-scroll::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, #246650 0%, #3aa492 100%);
+}

@@ -51,7 +51,7 @@ export function AriaPanel() {
           style={{ width: "100%", height: "100%", objectFit: "cover", opacity: 0.35, mixBlendMode: "luminosity" }}
         />
         <div style={{ position: "absolute", top: 16, left: 16 }}>
-          <div style={{ fontSize: "1.1rem", fontWeight: 700, color: "#ffffff" }}>Aria</div>
+          <div style={{ fontSize: "1.1rem", fontWeight: 700, color: "#ffffff" }}>Temur</div>
           <div style={{ fontSize: "0.72rem", color: "rgba(255,255,255,0.55)" }}>{t("aria_sub")}</div>
         </div>
       </div>

@@ -1,88 +1,129 @@
-import { Search, SlidersHorizontal } from "lucide-react";
-import { motion } from "motion/react";
+import { useState, useEffect, useCallback } from "react";
+import { Maximize2, Minimize2 } from "lucide-react";
+import { motion, AnimatePresence } from "motion/react";
 import { useI18n } from "../i18n";
 import { usePortfolio } from "../portfolio";
 
-const fallback = [
-  { name: "Dr. Chloe Davis", col2: "Pathology", col3: "(505) 555-0123", available: true, rank: "1",
-    img: "https://images.unsplash.com/photo-1594824476967-48c8b964273f?w=56&h=56&fit=crop&auto=format" },
-  { name: "Dr. Ben Carter", col2: "Orthopedics", col3: "(405) 654-7654", available: false, rank: "2",
-    img: "https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=56&h=56&fit=crop&auto=format" },
-  { name: "Dr. Alice Smith", col2: "Pathology", col3: "(504) 654-0543", available: true, rank: "3",
-    img: "https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=56&h=56&fit=crop&auto=format" },
-];
+const PERIODS = ["all", "year", "quarter", "month", "week"];
+
+function avatar(name: string) {
+  return `https://i.pravatar.cc/64?u=${encodeURIComponent(name)}`;
+}
 
 export function HealthcareProviders() {
   const { t } = useI18n();
-  const { data } = usePortfolio();
-  const board = data?.widgets?.pm_leaderboard;
+  const { pmBoard } = usePortfolio();
+  const [period, setPeriod] = useState("all");
+  const [rows, setRows] = useState<any[]>([]);
+  const [expanded, setExpanded] = useState(false);
 
-  const filtered = board?.length
-    ? board.map((b: any) => ({
-        name: b.pm,
-        col2: String(b.score),
-        col3: `${b.projects_completed} • ${b.avg_ttm}d`,
-        available: b.available,
-        rank: `#${b.rank}`,
-        img: `https://i.pravatar.cc/64?u=${encodeURIComponent(b.pm)}`,
-      }))
-    : fallback;
+  useEffect(() => {
+    let alive = true;
+    pmBoard(period).then((r) => { if (alive) setRows(r?.rows || []); });
+    return () => { alive = false; };
+  }, [period, pmBoard]);
 
-  return (
-    <div className="p-6 flex flex-col gap-4" style={{ height: "100%" }}>
-      <div className="flex items-center justify-between">
+  const Cols = "44px 1.9fr 0.8fr 0.8fr 0.9fr";
+
+  const Table = useCallback(({ big }: { big?: boolean }) => (
+    <div className="flex flex-col gap-3" style={{ height: "100%", minHeight: 0 }}>
+      {/* Title + period filter + expand */}
+      <div className="flex items-center justify-between" style={{ flexWrap: "wrap", gap: 8 }}>
         <span style={{ fontSize: "0.9rem", fontWeight: 600, color: "#1a2030" }}>{t("healthcare_providers")}</span>
-        <div className="flex gap-2">
-          <button style={{ width: 32, height: 32, borderRadius: 8, background: "#f0f4f7", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <Search size={14} color="#6b7a8d" />
-          </button>
-          <button style={{ display: "flex", alignItems: "center", gap: 4, height: 32, borderRadius: 8, background: "#f0f4f7", border: "none", cursor: "pointer", padding: "0 10px", fontSize: "0.75rem", color: "#6b7a8d" }}>
-            <SlidersHorizontal size={12} /> {t("filter")}
-          </button>
+        <div className="flex items-center gap-1" style={{ flexWrap: "wrap" }}>
+          {PERIODS.map((p) => (
+            <button
+              key={p}
+              onClick={() => setPeriod(p)}
+              style={{
+                padding: "3px 9px", borderRadius: 999, border: "none", cursor: "pointer",
+                fontSize: "0.66rem", fontWeight: period === p ? 600 : 400,
+                background: period === p ? "#0c5563" : "#eef1f4",
+                color: period === p ? "#ffffff" : "#6b7a8d",
+                transition: "all 0.15s",
+              }}
+            >
+              {t("pl_" + p)}
+            </button>
+          ))}
+          {!big && (
+            <button onClick={() => setExpanded(true)} title="Expand"
+              style={{ width: 26, height: 26, borderRadius: 8, background: "#eef1f4", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", marginLeft: 2 }}>
+              <Maximize2 size={12} color="#6b7a8d" />
+            </button>
+          )}
         </div>
       </div>
 
       {/* Header row */}
-      <div style={{ display: "grid", gridTemplateColumns: "2fr 1.2fr 1.3fr 40px", fontSize: "0.72rem", color: "#9aa5b4", paddingBottom: 4, borderBottom: "1px solid #e4eaef" }}>
+      <div style={{ display: "grid", gridTemplateColumns: Cols, gap: 6, fontSize: "0.68rem", color: "#9aa5b4", paddingBottom: 4, borderBottom: "1px solid #e4eaef" }}>
+        <span>{t("lb_rank")}</span>
         <span>{t("provider_name")}</span>
-        <span>{t("department")}</span>
-        <span>{t("contact")}</span>
-        <span>{t("action")}</span>
+        <span style={{ textAlign: "center" }}>{t("lb_projects")}</span>
+        <span style={{ textAlign: "center" }}>{t("lb_tasks")}</span>
+        <span style={{ textAlign: "right" }}>{t("lb_time")}</span>
       </div>
 
-      {filtered.map((p: any, i: number) => (
-        <motion.div
-          key={i}
-          initial={{ opacity: 0, y: 6 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: i * 0.08 }}
-          style={{
-            display: "grid",
-            gridTemplateColumns: "2fr 1.2fr 1.3fr 40px",
-            alignItems: "center",
-            paddingBottom: i < filtered.length - 1 ? 12 : 0,
-            borderBottom: i < filtered.length - 1 ? "1px solid #f0f4f7" : "none",
-          }}
-        >
-          <div className="flex items-center gap-2">
-            <img
-              src={p.img}
-              alt={p.name}
-              style={{ width: 32, height: 32, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }}
-            />
-            <div>
-              <div style={{ fontSize: "0.78rem", fontWeight: 300, color: "#1a2030" }}>{p.name}</div>
-              <div className="flex items-center gap-1">
-                <div style={{ width: 6, height: 6, borderRadius: "50%", background: p.available ? "#2d7a5f" : "#e53e3e" }} />
-                <span style={{ fontSize: "0.65rem", color: "#9aa5b4" }}>{p.available ? t("available") : t("absent")}</span>
-              </div>
+      {/* Scrollable rows with designed scrollbar */}
+      <div className="pn-scroll" style={{ flex: 1, minHeight: 0, overflowY: "auto", paddingRight: 4, display: "flex", flexDirection: "column", gap: big ? 10 : 8 }}>
+        {rows.length === 0 && (
+          <span style={{ fontSize: "0.75rem", color: "#9aa5b4", padding: "8px 0" }}>No completions in this period.</span>
+        )}
+        {rows.map((r: any, i: number) => (
+          <motion.div
+            key={r.pm}
+            initial={{ opacity: 0, y: 5 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: Math.min(i * 0.03, 0.3) }}
+            style={{ display: "grid", gridTemplateColumns: Cols, gap: 6, alignItems: "center" }}
+          >
+            <span style={{
+              fontSize: "0.72rem", fontWeight: 700,
+              color: r.rank === 1 ? "#d4a84b" : r.rank === 2 ? "#9aa5b4" : r.rank === 3 ? "#cd7f32" : "#6b7a8d",
+            }}>#{r.rank}</span>
+            <div className="flex items-center gap-2" style={{ minWidth: 0 }}>
+              <img src={avatar(r.pm)} alt={r.pm} style={{ width: 28, height: 28, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} />
+              <span style={{ fontSize: "0.76rem", fontWeight: 400, color: "#1a2030", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }} title={r.pm}>{r.pm}</span>
             </div>
-          </div>
-          <span style={{ fontSize: "0.75rem", color: "#6b7a8d" }}>{p.col2}</span>
-          <span style={{ fontSize: "0.75rem", color: "#6b7a8d" }}>{p.col3}</span>
-          <span style={{ fontSize: "0.78rem", fontWeight: 600, color: "#1a2030", textAlign: "right" }}>{p.rank}</span>
-        </motion.div>
-      ))}
+            <span style={{ fontSize: "0.8rem", fontWeight: 600, color: "#2d7a5f", textAlign: "center" }}>{r.projects_completed}</span>
+            <span style={{ fontSize: "0.8rem", fontWeight: 600, color: "#9b59b6", textAlign: "center" }}>{r.tasks_completed}</span>
+            <span style={{ fontSize: "0.72rem", color: "#6b7a8d", textAlign: "right" }}>{r.time_spent}</span>
+          </motion.div>
+        ))}
+      </div>
     </div>
+  ), [rows, period, t]);
+
+  return (
+    <>
+      <div className="p-6" style={{ height: "100%", minHeight: 0 }}>
+        <Table />
+      </div>
+
+      {/* Expanded (enlarge) modal */}
+      <AnimatePresence>
+        {expanded && (
+          <motion.div
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            onClick={() => setExpanded(false)}
+            style={{ position: "fixed", inset: 0, background: "rgba(20,40,55,0.45)", backdropFilter: "blur(4px)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}
+          >
+            <motion.div
+              initial={{ scale: 0.95, y: 16 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 16 }}
+              onClick={(e) => e.stopPropagation()}
+              style={{ background: "#fff", borderRadius: 18, boxShadow: "0 30px 80px rgba(0,0,0,0.3)", width: "min(720px, 94vw)", height: "min(80vh, 760px)", padding: 24, display: "flex", flexDirection: "column" }}
+            >
+              <div style={{ flex: 1, minHeight: 0, position: "relative" }}>
+                <button onClick={() => setExpanded(false)} title="Shrink"
+                  style={{ position: "absolute", top: -6, right: -6, width: 30, height: 30, borderRadius: 9, background: "#eef1f4", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1 }}>
+                  <Minimize2 size={14} color="#6b7a8d" />
+                </button>
+                <Table big />
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </>
   );
 }

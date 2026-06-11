@@ -138,10 +138,10 @@ export default function App() {
       {/* ===================== TOP NAV ===================== */}
       <header style={{ display: "flex", alignItems: "center", gap: 14, padding: isMobile ? "16px 18px 6px" : "20px 32px 8px", position: "sticky", top: 0, zIndex: 50 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 11 }}>
-          <div style={{ width: 40, height: 40, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, ...glassCircle }}>
-            <Sparkles size={18} color="#0c5563" />
+          <div style={{ width: 40, height: 40, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, overflow: "hidden", ...glassCircle }}>
+            <img src="/ipak-logo.svg" alt="IPAK" style={{ width: 26, height: 26, objectFit: "contain" }} />
           </div>
-          <span style={{ fontSize: "1.1rem", fontWeight: 300, color: "#ffffff" }}>CareNest</span>
+          <span style={{ fontSize: "1.1rem", fontWeight: 300, color: "#ffffff" }}>ProjectNest</span>
         </div>
 
         <div style={{ flex: 1 }} />
@@ -220,7 +220,12 @@ export default function App() {
             </>
           )}
 
-          <img src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=64&h=64&fit=crop&auto=format" alt="User" style={{ width: 42, height: 42, borderRadius: "50%", objectFit: "cover", border: "2px solid rgba(255,255,255,0.7)", cursor: "pointer", flexShrink: 0 }} />
+          <img
+            src="/temur.jpg"
+            onError={(e) => { (e.currentTarget as HTMLImageElement).src = "https://ui-avatars.com/api/?name=Temur&background=8a5a2b&color=fff&bold=true"; }}
+            alt="Temur"
+            style={{ width: 42, height: 42, borderRadius: "50%", objectFit: "cover", border: "2px solid rgba(255,255,255,0.7)", cursor: "pointer", flexShrink: 0 }}
+          />
         </div>
       </header>
 
@@ -258,20 +263,20 @@ export default function App() {
           <div style={{ display: "grid", gridTemplateColumns: "2.4fr 0.95fr", gap: GAP, flex: 1, minHeight: 0 }}>
             {/* Left region: Wellness|Stress (top) + Best|Healthcare (bottom) */}
             <div style={{ display: "flex", flexDirection: "column", gap: GAP, minHeight: 0 }}>
-              <div style={{ display: "grid", gridTemplateColumns: "1.1fr 1.3fr", gap: GAP, flex: "1.7 1 0", minHeight: 0 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1.1fr 1.3fr", gap: GAP, flex: "1.5 1 0", minHeight: 0 }}>
                 <div style={{ ...card }}><WellnessChart /></div>
                 {stressCard()}
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "0.9fr 1.5fr", gap: GAP, flex: "1 1 0", minHeight: 0 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "0.9fr 1.5fr", gap: GAP, flex: "1.2 1 0", minHeight: 0 }}>
                 <div style={{ ...card }}><BestProjects /></div>
                 <div style={{ ...card }}><HealthcareProviders /></div>
               </div>
             </div>
 
-            {/* Right region: Patient Flow (shorter) + Aria (taller, raised ~20%) */}
+            {/* Right region: Patient Flow (shorter) + Temur (taller) */}
             <div style={{ display: "flex", flexDirection: "column", gap: GAP, minHeight: 0 }}>
-              <div style={{ ...card, flex: "1.5 1 0", minHeight: 0 }}><PatientFlowChart /></div>
-              <div style={{ flex: "1.2 1 0", minHeight: 0 }}><AriaPanel /></div>
+              <div style={{ ...card, flex: "1.26 1 0", minHeight: 0 }}><PatientFlowChart /></div>
+              <div style={{ flex: "1.44 1 0", minHeight: 0 }}><AriaPanel /></div>
             </div>
           </div>
         )}

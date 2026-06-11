@@ -68,9 +68,10 @@ def build(issues: list[dict]) -> dict:
         "completion_pct": kpis["completion_pct"],
     }
 
-    # ---- widget: Best Projects -> top 3 by health ----
+    # ---- widget: Best Projects -> top 3 by health (key + epic summary) ----
     palette = ["#2d7a5f", "#9b59b6", "#d4a84b"]
-    top3 = [{"name": f"{h['key']} ({h['project']})", "pct": round(h["score"]),
+    top3 = [{"key": h["key"], "summary": h.get("summary") or "",
+             "name": f"{h['key']} ({h['project']})", "pct": round(h["score"]),
              "color": palette[i % 3]} for i, h in enumerate(health[:3])]
 
     # ---- widget: Healthcare Providers table -> PM leaderboard ----

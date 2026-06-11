@@ -355,6 +355,59 @@ def pm_leaderboard(issues):
     return board
 
 
+def pm_leaderboard_period(issues, period="all", ref=None):
+    """PM leaderboard filtered to a time window by resolution date.
+
+    period: all | year | quarter | month | week. Counts completed projects (epics)
+    and tasks per PM, plus total time spent (sum of TTM days). Ranked by output.
+    """
+    eps = epics(issues)
+    completed = [e for e in eps if is_done(e) and e.get("resolved")]
+    if ref is None:
+        dates = [_d(e["resolved"]) for e in completed]
+        ref = max(dates) if dates else dt.datetime.now()
+
+    def in_win(iso):
+        if period == "all":
+            return True
+        if not iso:
+            return False
+        d = _d(iso)
+        if period == "year":
+            return d.year == ref.year
+        if period == "quarter":
+            return d.year == ref.year and (d.month - 1) // 3 == (ref.month - 1) // 3
+        if period == "month":
+            return d.year == ref.year and d.month == ref.month
+        if period == "week":
+            return d.isocalendar()[:2] == ref.isocalendar()[:2]
+        return True
+
+    agg: dict[str, dict] = {}
+    for e in eps:
+        if is_done(e) and in_win(e.get("resolved")):
+            a = agg.setdefault(e["pm"], {"projects": 0, "tasks": 0, "time": 0.0})
+            a["projects"] += 1
+            a["time"] += issue_ttm(e)["total"]
+    for w in works(issues):
+        if is_done(w) and in_win(w.get("resolved")):
+            a = agg.setdefault(w["pm"], {"projects": 0, "tasks": 0, "time": 0.0})
+            a["tasks"] += 1
+            a["time"] += issue_ttm(w)["total"]
+
+    board = []
+    for pm, s in agg.items():
+        if pm == "Unassigned":
+            continue
+        board.append({"pm": pm, "projects_completed": s["projects"],
+                      "tasks_completed": s["tasks"], "time_spent": round(s["time"], 1)})
+    board.sort(key=lambda b: (b["projects_completed"], b["tasks_completed"], b["time_spent"]), reverse=True)
+    for i, b in enumerate(board, 1):
+        b["rank"] = i
+    return {"period": period, "ref": ref.isoformat() if hasattr(ref, "isoformat") else str(ref),
+            "rows": board}
+
+
 def pm_nominations(board):
     if not board:
         return {}
