@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { useI18n } from "../i18n";
 import { usePortfolio } from "../portfolio";
 import { useAvatar } from "../avatars";
+import { openDrill } from "../drill";
 
 const PERIODS = ["all", "year", "quarter", "month", "week"];
 
@@ -90,8 +91,8 @@ export function HealthcareProviders() {
               <LeaderAvatar pm={r.pm} />
               <span style={{ fontSize: "0.76rem", fontWeight: 400, color: "var(--text)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }} title={r.pm}>{r.pm}</span>
             </div>
-            <span style={{ fontSize: "0.8rem", fontWeight: 600, color: "#2d7a5f", textAlign: "center" }}>{r.projects_completed}</span>
-            <span style={{ fontSize: "0.8rem", fontWeight: 600, color: "#9b59b6", textAlign: "center" }}>{r.tasks_completed}</span>
+            <span onClick={() => openDrill(`${r.pm} — ${t("lb_projects")}`, { scope: "epics", state: "completed", pm: r.pm })} style={{ fontSize: "0.8rem", fontWeight: 600, color: "#2d7a5f", textAlign: "center", cursor: "pointer" }}>{r.projects_completed}</span>
+            <span onClick={() => openDrill(`${r.pm} — ${t("lb_tasks")}`, { scope: "tasks", state: "completed", pm: r.pm })} style={{ fontSize: "0.8rem", fontWeight: 600, color: "#9b59b6", textAlign: "center", cursor: "pointer" }}>{r.tasks_completed}</span>
             <span style={{ fontSize: "0.72rem", color: "#6b7a8d", textAlign: "right" }}>{r.time_spent}</span>
           </motion.div>
         ))}

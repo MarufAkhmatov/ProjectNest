@@ -130,6 +130,17 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send({"has_data": False, "fields": []})
             from app.metrics import engines as E
             return self._send({"has_data": True, **E.data_quality(data["issues"])})
+        if route == "/api/issues":
+            data = storage.load_current()
+            if not data:
+                return self._send({"count": 0, "issues": []})
+            from app.metrics import engines as E
+            q = parse_qs(urlparse(self.path).query)
+            g = lambda k: (q.get(k, [None])[0])
+            return self._send(E.filter_issues(
+                data["issues"], scope=g("scope") or "all", state=g("state") or "all",
+                pm=g("pm"), project=g("project"), status=g("status"),
+                period=g("period"), value=g("value")))
         return self._send({"error": "not found"}, 404)
 
     def do_POST(self):

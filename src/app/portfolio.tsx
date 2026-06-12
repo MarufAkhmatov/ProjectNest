@@ -13,13 +13,14 @@ interface PortfolioState {
   pmBoard: (period: string) => Promise<any>;
   notifications: () => Promise<any>;
   dataQuality: () => Promise<any>;
+  drill: (params: Record<string, string>) => Promise<any>;
 }
 
 const Ctx = createContext<PortfolioState>({
   data: null, loading: true, online: false, meta: null,
   refresh: () => {}, upload: async () => ({}), ask: async () => ({}),
   pmBoard: async () => ({ rows: [] }), notifications: async () => ({ epics: [], tasks: [] }),
-  dataQuality: async () => ({ fields: [] }),
+  dataQuality: async () => ({ fields: [] }), drill: async () => ({ issues: [] }),
 });
 
 export function PortfolioProvider({ children }: { children: ReactNode }) {
@@ -94,8 +95,18 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const drill = useCallback(async (params: Record<string, string>) => {
+    try {
+      const qs = new URLSearchParams(params).toString();
+      const r = await fetch(`${API}/api/issues?${qs}`);
+      return await r.json();
+    } catch {
+      return { issues: [] };
+    }
+  }, []);
+
   return (
-    <Ctx.Provider value={{ data, loading, online, meta, refresh, upload, ask, pmBoard, notifications, dataQuality }}>
+    <Ctx.Provider value={{ data, loading, online, meta, refresh, upload, ask, pmBoard, notifications, dataQuality, drill }}>
       {children}
     </Ctx.Provider>
   );

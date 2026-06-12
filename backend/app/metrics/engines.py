@@ -358,6 +358,48 @@ def pm_leaderboard(issues):
     return board
 
 
+def filter_issues(issues, scope="all", state="all", pm=None, project=None,
+                  status=None, period=None, value=None, limit=600):
+    """Return the underlying issue list behind a dashboard number (drill-down)."""
+    out = []
+    for i in issues:
+        if scope == "epics" and not i["is_epic"]:
+            continue
+        if scope == "tasks" and i["is_epic"]:
+            continue
+        if pm and i["pm"] != pm:
+            continue
+        if project and i["project"] != project:
+            continue
+        if status and i["status"] != status:
+            continue
+        done, decl = is_done(i), is_declined(i)
+        if state == "completed" and not done:
+            continue
+        if state == "open" and (done or decl):
+            continue
+        if state == "declined" and not decl:
+            continue
+        # period window on resolution date (for throughput drill-downs)
+        if period and value and i.get("resolved"):
+            r = _d(i["resolved"])
+            tag = {"year": str(r.year), "quarter": f"{r.year}-Q{(r.month-1)//3+1}",
+                   "month": f"{r.year}-{r.month:02d}"}.get(period)
+            if tag != value:
+                continue
+        dur = None
+        if i.get("created") and i.get("resolved"):
+            dur = max(0, (_d(i["resolved"]) - _d(i["created"])).days)
+        out.append({
+            "key": i["key"], "url": i.get("url", ""), "summary": i.get("summary", ""),
+            "type": i["type"], "status": i["status"], "pm": i["pm"],
+            "project": i["project"], "resolved": (i["resolved"] or "")[:10] if i.get("resolved") else "",
+            "duration_days": dur,
+        })
+    out.sort(key=lambda x: (x["resolved"] or ""), reverse=True)
+    return {"count": len(out), "issues": out[:limit]}
+
+
 def data_quality(issues):
     """Field coverage of the active dataset (how many issues have each field filled)."""
     n = len(issues) or 1

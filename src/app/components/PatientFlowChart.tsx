@@ -1,6 +1,7 @@
 import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
 import { useI18n } from "../i18n";
 import { usePortfolio } from "../portfolio";
+import { openDrill } from "../drill";
 
 export function PatientFlowChart() {
   const { t } = useI18n();
@@ -47,7 +48,7 @@ export function PatientFlowChart() {
           </PieChart>
         </ResponsiveContainer>
         <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", pointerEvents: "none" }}>
-          <span style={{ fontSize: "1.7rem", fontWeight: 700, color: "var(--text)", lineHeight: 1 }}>{total}</span>
+          <span onClick={() => openDrill(t("patient_flow"), { scope: "epics" })} style={{ fontSize: "1.7rem", fontWeight: 700, color: "var(--text)", lineHeight: 1, cursor: "pointer", pointerEvents: "auto" }}>{total}</span>
           <span style={{ fontSize: "0.68rem", color: "#9aa5b4", marginTop: 4 }}>{pf ? `${pf.completion_pct}%` : t("capacity68")}</span>
         </div>
       </div>
@@ -57,14 +58,14 @@ export function PatientFlowChart() {
         <div className="flex items-center gap-2">
           <span style={{ width: 9, height: 9, borderRadius: 3, background: "#d4a84b", flexShrink: 0 }} />
           <div>
-            <div style={{ fontSize: "1rem", fontWeight: 700, color: "var(--text)", lineHeight: 1 }}>{completedN}</div>
+            <div onClick={() => openDrill(t("completed"), { scope: "epics", state: "completed" })} style={{ fontSize: "1rem", fontWeight: 700, color: "var(--text)", lineHeight: 1, cursor: "pointer" }}>{completedN}</div>
             <div style={{ fontSize: "0.65rem", color: "#9aa5b4", marginTop: 2 }}>{t("completed")}</div>
           </div>
         </div>
         <div className="flex items-center gap-2">
           <span style={{ width: 9, height: 9, borderRadius: 3, background: "#9b59b6", flexShrink: 0 }} />
           <div>
-            <div style={{ fontSize: "1rem", fontWeight: 700, color: "var(--text)", lineHeight: 1 }}>{openN}</div>
+            <div onClick={() => openDrill(t("upcoming"), { scope: "epics", state: "open" })} style={{ fontSize: "1rem", fontWeight: 700, color: "var(--text)", lineHeight: 1, cursor: "pointer" }}>{openN}</div>
             <div style={{ fontSize: "0.65rem", color: "#9aa5b4", marginTop: 2 }}>{t("upcoming")}</div>
           </div>
         </div>

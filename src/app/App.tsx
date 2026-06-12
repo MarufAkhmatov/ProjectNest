@@ -11,6 +11,8 @@ import { AvatarManager } from "./components/AvatarManager";
 import { NotificationsBell } from "./components/NotificationsBell";
 import { Celebrations } from "./components/Celebrations";
 import { DataQualityModal } from "./components/DataQualityModal";
+import { DrillDownHost } from "./components/DrillDownHost";
+import { openDrill } from "./drill";
 import { WellnessChart } from "./components/WellnessChart";
 import { StressRecoveryChart } from "./components/StressRecoveryChart";
 import { HRVChart } from "./components/HRVChart";
@@ -74,12 +76,12 @@ function MetricBars() {
   );
 }
 
-function Metric({ value, label }: { value: string; label: string }) {
+function Metric({ value, label, onClick }: { value: string; label: string; onClick?: () => void }) {
   return (
     <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.45 }} style={{ display: "flex", alignItems: "center", gap: 13 }}>
       <MetricBars />
       <div>
-        <div style={{ fontSize: 40, fontWeight: 300, color: "#ffffff", lineHeight: 1, letterSpacing: "-1px" }}>{value}</div>
+        <div onClick={onClick} style={{ fontSize: 40, fontWeight: 300, color: "#ffffff", lineHeight: 1, letterSpacing: "-1px", cursor: onClick ? "pointer" : "default" }}>{value}</div>
         <div style={{ fontSize: 13, fontWeight: 300, color: "rgba(255,255,255,0.78)", marginTop: 6, whiteSpace: "nowrap" }}>{label}</div>
       </div>
     </motion.div>
@@ -274,9 +276,9 @@ export default function App() {
           </div>
 
           <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 22 : 38, flexShrink: 0, flexWrap: "wrap" }}>
-            <Metric value={hm ? String(hm[0].value) : "—"} label={t("kpi_total_projects")} />
-            <Metric value={hm ? String(hm[1].value) : "—"} label={t("kpi_completed")} />
-            <Metric value={hm ? String(hm[2].value) : "—"} label={t("kpi_open")} />
+            <Metric value={hm ? String(hm[0].value) : "—"} label={t("kpi_total_projects")} onClick={() => openDrill(t("kpi_total_projects"), { scope: "epics" })} />
+            <Metric value={hm ? String(hm[1].value) : "—"} label={t("kpi_completed")} onClick={() => openDrill(t("kpi_completed"), { scope: "epics", state: "completed" })} />
+            <Metric value={hm ? String(hm[2].value) : "—"} label={t("kpi_open")} onClick={() => openDrill(t("kpi_open"), { scope: "epics", state: "open" })} />
           </div>
         </div>
 
@@ -370,6 +372,9 @@ export default function App() {
       <AnimatePresence>
         {dqOpen && <DataQualityModal onClose={() => setDqOpen(false)} />}
       </AnimatePresence>
+
+      {/* Drill-down popup: any number opens the underlying issue list */}
+      <DrillDownHost />
 
       {/* Celebrations: recently-closed epics + leaderboard changes (confetti) */}
       <Celebrations />

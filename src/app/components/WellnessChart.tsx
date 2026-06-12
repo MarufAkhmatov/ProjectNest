@@ -2,6 +2,7 @@ import { useState } from "react";
 import { motion } from "motion/react";
 import { useI18n } from "../i18n";
 import { usePortfolio } from "../portfolio";
+import { openDrill } from "../drill";
 
 const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const heights = [28, 35, 62, 88, 70, 30, 22];
@@ -24,7 +25,7 @@ export function WellnessChart() {
     <div className="p-6 flex flex-col gap-4" style={{ height: "100%" }}>
       <div className="flex items-center justify-between">
         <span style={{ color: "var(--text)", fontSize: "0.85rem", fontWeight: 300 }}>{t("wellness_progress")}</span>
-        <span style={{ fontSize: "1.5rem", fontWeight: 600, color: "var(--text)" }}>{pct}%</span>
+        <span onClick={() => openDrill(t("kpi_completed"), { scope: "epics", state: "completed" })} style={{ fontSize: "1.5rem", fontWeight: 600, color: "var(--text)", cursor: "pointer" }}>{pct}%</span>
       </div>
 
       <div className="flex gap-4">
