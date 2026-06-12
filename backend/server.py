@@ -130,6 +130,21 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send({"has_data": False, "fields": []})
             from app.metrics import engines as E
             return self._send({"has_data": True, **E.data_quality(data["issues"])})
+        if route == "/api/issue":
+            data = storage.load_current()
+            key = parse_qs(urlparse(self.path).query).get("key", [None])[0]
+            if not data or not key:
+                return self._send({"found": False}, 404)
+            issue = next((i for i in data["issues"] if i["key"] == key), None)
+            if not issue:
+                return self._send({"found": False}, 404)
+            from app.metrics import engines as E
+            dur = None
+            if issue.get("created") and issue.get("resolved"):
+                dur = max(0, (E._d(issue["resolved"]) - E._d(issue["created"])).days)
+            children = [c["key"] for c in data["issues"] if c.get("epic_key") == key]
+            return self._send({"found": True, "issue": issue, "duration_days": dur,
+                               "children": children})
         if route == "/api/issues":
             data = storage.load_current()
             if not data:

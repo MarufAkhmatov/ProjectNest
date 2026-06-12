@@ -12,6 +12,7 @@ import { NotificationsBell } from "./components/NotificationsBell";
 import { Celebrations } from "./components/Celebrations";
 import { DataQualityModal } from "./components/DataQualityModal";
 import { DrillDownHost } from "./components/DrillDownHost";
+import { IssueDetailHost } from "./components/IssueDetailHost";
 import { openDrill } from "./drill";
 import { WellnessChart } from "./components/WellnessChart";
 import { StressRecoveryChart } from "./components/StressRecoveryChart";
@@ -375,6 +376,9 @@ export default function App() {
 
       {/* Drill-down popup: any number opens the underlying issue list */}
       <DrillDownHost />
+
+      {/* Issue detail popup: full issue info in-app (no Jira access needed) */}
+      <IssueDetailHost />
 
       {/* Celebrations: recently-closed epics + leaderboard changes (confetti) */}
       <Celebrations />

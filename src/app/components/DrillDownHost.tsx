@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { X, ExternalLink } from "lucide-react";
 import { usePortfolio } from "../portfolio";
 import { jiraUrl } from "../jira";
+import { openIssue } from "../issue";
 
 const typeColor: Record<string, string> = {
   Epic: "#9b59b6", Task: "#2d7a5f", "New Feature": "#d4a84b", "Sub-task": "#6b7a8d",
@@ -68,12 +69,13 @@ export function DrillDownHost() {
               )}
               {rows.map((r) => (
                 <div key={r.key} style={{ display: "grid", gridTemplateColumns: "110px 1fr 0.7fr 0.9fr 70px", gap: 8, alignItems: "center", padding: "8px 0", borderBottom: "1px solid var(--divider)" }}>
-                  <a className="jira-link" href={jiraUrl(r.key, r.url, base)} target="_blank" rel="noopener noreferrer" style={{ fontSize: "0.74rem", fontWeight: 600, color: "var(--text)", display: "flex", alignItems: "center", gap: 4 }}>
-                    {r.key} <ExternalLink size={10} />
-                  </a>
-                  <a className="jira-link" href={jiraUrl(r.key, r.url, base)} target="_blank" rel="noopener noreferrer" title={r.summary} style={{ fontSize: "0.72rem", color: "var(--soft)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                  <span style={{ display: "flex", alignItems: "center", gap: 5, minWidth: 0 }}>
+                    <span className="jira-link" onClick={() => openIssue(r.key)} title="View details" style={{ fontSize: "0.74rem", fontWeight: 600, color: "var(--text)" }}>{r.key}</span>
+                    <a href={jiraUrl(r.key, r.url, base)} target="_blank" rel="noopener noreferrer" title="Open in Jira" style={{ display: "flex", color: "#9aa5b4", flexShrink: 0 }}><ExternalLink size={10} /></a>
+                  </span>
+                  <span className="jira-link" onClick={() => openIssue(r.key)} title="View details" style={{ fontSize: "0.72rem", color: "var(--soft)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", cursor: "pointer" }}>
                     {r.summary || "—"}
-                  </a>
+                  </span>
                   <span style={{ fontSize: "0.66rem", color: typeColor[r.type] || "var(--soft)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }} title={r.status}>{r.status}</span>
                   <span style={{ fontSize: "0.7rem", color: "var(--soft)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }} title={r.pm}>{r.pm}</span>
                   <span style={{ fontSize: "0.7rem", color: "var(--muted)", textAlign: "right" }}>{r.duration_days ?? "—"}</span>
