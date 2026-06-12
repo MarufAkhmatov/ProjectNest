@@ -162,6 +162,7 @@ def _parse_jira_printable(text: str) -> list[dict]:
             "Issue Type": fields.get("Тип") or fields.get("Type") or "",
             "PM": fields.get("PM") or "",
             "Assignee": fields.get("Исполнитель") or fields.get("Assignee") or "",
+            "Reporter": fields.get("Автор") or fields.get("Reporter") or "",
             "Resolution": fields.get("Решение") or fields.get("Resolution") or "",
             "Project": key.split("-")[0],
             "Created": dlabel("Создано") or dlabel("Created"),
@@ -169,6 +170,11 @@ def _parse_jira_printable(text: str) -> list[dict]:
             "Due Date": dlabel("Срок исполнения") or dlabel("Due"),
             "Epic Link": epic_key,
             "Blocks": blocks,
+            "Приоритет": fields.get("Приоритет") or fields.get("Priority") or "",
+            "Тип проекта": fields.get("Тип проекта") or "",
+            "Требование регулятора": fields.get("Требование регулятора") or "",
+            "Подразделение заказчика": fields.get("Подразделение заказчика") or "",
+            "Скоринг-балл": fields.get("Скоринг-балл") or "",
         })
     return rows
 

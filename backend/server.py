@@ -19,33 +19,37 @@ from app import parser, normalize, aggregate, aria, storage, config
 PORT = 8077
 
 
-def _ingest_path(path: Path, filename: str):
+def _ingest_path(path: Path, filename: str, mode: str = "replace"):
     raw = path.read_bytes()
     h = hashlib.sha256(raw).hexdigest()[:16]
     issues = storage.parse_cache_get(h)          # fast path: cached parse
-    nrows = None
     if issues is None:
         rows = parser.parse_file(path)
-        nrows = len(rows)
         if not rows:
             raise ValueError(
                 "This file has no data table — it looks like a Jira login/auth page, "
-                "not an export. In Jira open your filter (project = PMD OR project = PMO), "
-                "then Export -> 'Excel CSV (all fields)' (or Printable HTML / XLSX) and upload that."
+                "not an export. Export -> 'Excel CSV (all fields)' (or Printable HTML / XLSX)."
             )
         issues = normalize.normalize_rows(rows)
         if not issues:
             cols = ", ".join(list(rows[0].keys())[:12])
-            raise ValueError(
-                "Found a table but no issue-key column was recognised. "
-                f"Detected columns: [{cols}]."
-            )
+            raise ValueError(f"No issue-key column recognised. Detected columns: [{cols}].")
         storage.parse_cache_put(h, issues)        # cache parsed/normalized issues
+
+    # merge with the active dataset (combine PMD + PMO), dedup by key (new wins)
+    if mode == "merge":
+        cur = storage.load_current()
+        if cur and cur.get("issues"):
+            by_key = {i["key"]: i for i in cur["issues"]}
+            for i in issues:
+                by_key[i["key"]] = i
+            issues = list(by_key.values())
+
     payload = aggregate.build(issues)
     meta = {
-        "filename": filename, "stored_as": path.name, "rows": nrows if nrows is not None else len(issues),
+        "filename": filename, "stored_as": path.name, "mode": mode,
         "issues": len(issues), "epics": payload["kpis"]["total_epics"],
-        "cached": issues is not None and nrows is None,
+        "projects": sorted({i["project"] for i in issues}),
         "uploaded_at": dt.datetime.now().isoformat(timespec="seconds"),
     }
     storage.set_current({"issues": issues, "payload": payload}, meta)
@@ -114,6 +118,12 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send({"has_data": False, "epics": [], "tasks": []})
             from app.metrics import engines as E
             return self._send({"has_data": True, **E.recent_closures(data["issues"])})
+        if route == "/api/data-quality":
+            data = storage.load_current()
+            if not data:
+                return self._send({"has_data": False, "fields": []})
+            from app.metrics import engines as E
+            return self._send({"has_data": True, **E.data_quality(data["issues"])})
         return self._send({"error": "not found"}, 404)
 
     def do_POST(self):
@@ -124,9 +134,10 @@ class Handler(BaseHTTPRequestHandler):
 
         if route == "/api/upload":
             filename = qs.get("filename", ["upload.csv"])[0]
+            mode = qs.get("mode", ["replace"])[0]
             saved = storage.save_upload(filename, body)
             try:
-                meta, payload = _ingest_path(saved, filename)
+                meta, payload = _ingest_path(saved, filename, mode)
             except Exception as e:
                 return self._send({"ok": False, "error": str(e)}, 422)
             return self._send({"ok": True, "meta": meta, "kpis": payload["kpis"]})

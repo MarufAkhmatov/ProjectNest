@@ -358,6 +358,28 @@ def pm_leaderboard(issues):
     return board
 
 
+def data_quality(issues):
+    """Field coverage of the active dataset (how many issues have each field filled)."""
+    n = len(issues) or 1
+    EMPTY = {"", "unassigned", "не задана", "нет", "none", "не заполнено",
+             "не определено", "не назначен", "-", "0"}
+    defs = [
+        ("Issue key", "key"), ("Type", "type"), ("Status", "status"), ("Project", "project"),
+        ("PM (custom)", "pm"), ("Assignee", "assignee"), ("Reporter", "reporter"),
+        ("Priority", "priority"), ("Resolved date", "resolved"), ("Created", "created"),
+        ("Due date", "due"), ("Epic link", "epic_key"), ("Project type", "project_type"),
+        ("Regulator req.", "regulator"), ("Customer division", "division"), ("Scoring", "scoring"),
+    ]
+    rows = []
+    for label, k in defs:
+        filled = sum(1 for i in issues if str(i.get(k) or "").strip().lower() not in EMPTY)
+        rows.append({"field": label, "filled": filled, "total": len(issues),
+                     "pct": round(100 * filled / n, 1)})
+    has_history = any(len(i.get("history", [])) > 2 for i in issues)
+    return {"total": len(issues), "fields": rows, "has_status_history": has_history,
+            "epics": sum(1 for i in issues if i["is_epic"])}
+
+
 def recent_closures(issues, days=14, limit=30):
     """Items resolved within `days` of the most recent resolution date.
 

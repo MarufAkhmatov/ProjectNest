@@ -23,7 +23,7 @@ def build(issues: list[dict]) -> dict:
     header_metrics = [
         {"value": kpis["total_portfolio_projects"], "label_key": "kpi_total_projects", "up": True},
         {"value": kpis["completed_projects"], "label_key": "kpi_completed", "up": True},
-        {"value": blockers["total_blocked"], "label_key": "kpi_critical", "up": False},
+        {"value": kpis["open_projects"], "label_key": "kpi_open", "up": True},
     ]
 
     # ---- widget: Wellness (progress lollipops) -> Portfolio completion + monthly trend ----

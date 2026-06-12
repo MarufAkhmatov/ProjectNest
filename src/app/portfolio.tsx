@@ -8,16 +8,18 @@ interface PortfolioState {
   online: boolean;
   meta: any | null;
   refresh: () => void;
-  upload: (file: File) => Promise<any>;
+  upload: (file: File, mode?: "replace" | "merge") => Promise<any>;
   ask: (q: string) => Promise<any>;
   pmBoard: (period: string) => Promise<any>;
   notifications: () => Promise<any>;
+  dataQuality: () => Promise<any>;
 }
 
 const Ctx = createContext<PortfolioState>({
   data: null, loading: true, online: false, meta: null,
   refresh: () => {}, upload: async () => ({}), ask: async () => ({}),
   pmBoard: async () => ({ rows: [] }), notifications: async () => ({ epics: [], tasks: [] }),
+  dataQuality: async () => ({ fields: [] }),
 });
 
 export function PortfolioProvider({ children }: { children: ReactNode }) {
@@ -44,8 +46,8 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => { refresh(); }, [refresh]);
 
-  const upload = useCallback(async (file: File) => {
-    const r = await fetch(`${API}/api/upload?filename=${encodeURIComponent(file.name)}`, {
+  const upload = useCallback(async (file: File, mode: "replace" | "merge" = "replace") => {
+    const r = await fetch(`${API}/api/upload?filename=${encodeURIComponent(file.name)}&mode=${mode}`, {
       method: "POST", body: file,
     });
     const j = await r.json();
@@ -83,8 +85,17 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const dataQuality = useCallback(async () => {
+    try {
+      const r = await fetch(`${API}/api/data-quality`);
+      return await r.json();
+    } catch {
+      return { fields: [] };
+    }
+  }, []);
+
   return (
-    <Ctx.Provider value={{ data, loading, online, meta, refresh, upload, ask, pmBoard, notifications }}>
+    <Ctx.Provider value={{ data, loading, online, meta, refresh, upload, ask, pmBoard, notifications, dataQuality }}>
       {children}
     </Ctx.Provider>
   );

@@ -10,6 +10,7 @@ import { useAvatar, USER_ID } from "./avatars";
 import { AvatarManager } from "./components/AvatarManager";
 import { NotificationsBell } from "./components/NotificationsBell";
 import { Celebrations } from "./components/Celebrations";
+import { DataQualityModal } from "./components/DataQualityModal";
 import { WellnessChart } from "./components/WellnessChart";
 import { StressRecoveryChart } from "./components/StressRecoveryChart";
 import { HRVChart } from "./components/HRVChart";
@@ -96,6 +97,7 @@ export default function App() {
   const { mode, toggle } = useTheme();
   const userAvatar = useAvatar(USER_ID, "/temur.jpg");
   const [avatarMgr, setAvatarMgr] = useState(false);
+  const [dqOpen, setDqOpen] = useState(false);
   const hm = data?.widgets?.header_metrics;
   const fileRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
@@ -103,10 +105,14 @@ export default function App() {
   const onUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
     if (!f) return;
+    // If a dataset is already active, offer to MERGE (combine PMD + PMO) vs replace
+    const mode: "replace" | "merge" = data
+      ? (window.confirm("A dataset is already loaded.\n\nOK = ADD / merge (combine PMD + PMO)\nCancel = REPLACE everything") ? "merge" : "replace")
+      : "replace";
     setUploading(true);
     try {
-      const r = await upload(f);
-      alert(r?.ok ? `Loaded ${r.meta.issues} issues (${r.meta.epics} projects) from ${f.name}` : `Upload failed: ${r?.error || "error"}`);
+      const r = await upload(f, mode);
+      alert(r?.ok ? `${mode === "merge" ? "Merged" : "Loaded"} → ${r.meta.issues} issues (${r.meta.epics} projects) · ${(r.meta.projects || []).join(", ")}` : `Upload failed: ${r?.error || "error"}`);
     } catch {
       alert("Upload failed — is the backend running? (python backend/server.py)");
     } finally {
@@ -227,7 +233,7 @@ export default function App() {
           {/* settings + bell — desktop only */}
           {isDesktop && (
             <>
-              <button style={{ width: 42, height: 42, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "var(--header-icon)", ...glassCircle }}>
+              <button onClick={() => setDqOpen(true)} title="Data quality / field coverage" style={{ width: 42, height: 42, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "var(--header-icon)", ...glassCircle }}>
                 <Settings size={17} />
               </button>
               <NotificationsBell />
@@ -270,7 +276,7 @@ export default function App() {
           <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 22 : 38, flexShrink: 0, flexWrap: "wrap" }}>
             <Metric value={hm ? String(hm[0].value) : "—"} label={t("kpi_total_projects")} />
             <Metric value={hm ? String(hm[1].value) : "—"} label={t("kpi_completed")} />
-            <Metric value={hm ? String(hm[2].value) : "—"} label={t("kpi_critical")} />
+            <Metric value={hm ? String(hm[2].value) : "—"} label={t("kpi_open")} />
           </div>
         </div>
 
@@ -358,6 +364,11 @@ export default function App() {
       {/* Avatar manager (open from the user avatar) */}
       <AnimatePresence>
         {avatarMgr && <AvatarManager onClose={() => setAvatarMgr(false)} />}
+      </AnimatePresence>
+
+      {/* Data quality / field coverage (open from the gear) */}
+      <AnimatePresence>
+        {dqOpen && <DataQualityModal onClose={() => setDqOpen(false)} />}
       </AnimatePresence>
 
       {/* Celebrations: recently-closed epics + leaderboard changes (confetti) */}
