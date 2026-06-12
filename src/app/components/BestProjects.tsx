@@ -14,7 +14,7 @@ export function BestProjects() {
   const projects = data?.widgets?.top_projects?.length ? data.widgets.top_projects : fallback;
   return (
     <div className="p-6 flex flex-col gap-4" style={{ height: "100%" }}>
-      <span style={{ fontSize: "0.9rem", fontWeight: 600, color: "#1a2030" }}>
+      <span style={{ fontSize: "0.9rem", fontWeight: 600, color: "var(--text)" }}>
         {t("best_projects")}
       </span>
 
@@ -23,7 +23,7 @@ export function BestProjects() {
           <div key={i} className="flex flex-col gap-2">
             <div className="flex items-center justify-between gap-2">
               <div style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
-                <span style={{ fontSize: "0.76rem", fontWeight: 600, color: "#1a2030" }}>{p.key || p.name}</span>
+                <span style={{ fontSize: "0.76rem", fontWeight: 600, color: "var(--text)" }}>{p.key || p.name}</span>
                 {p.summary && (
                   <span style={{ fontSize: "0.63rem", color: "#9aa5b4", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 165 }} title={p.summary}>
                     {p.summary}
@@ -32,7 +32,7 @@ export function BestProjects() {
               </div>
               <span style={{ fontSize: "0.72rem", fontWeight: 600, color: p.color, flexShrink: 0 }}>{p.pct}%</span>
             </div>
-            <div style={{ height: 6, borderRadius: 6, background: "#eef1f4", overflow: "hidden" }}>
+            <div style={{ height: 6, borderRadius: 6, background: "var(--surface2)", overflow: "hidden" }}>
               <motion.div
                 initial={{ width: 0 }}
                 animate={{ width: `${p.pct}%` }}

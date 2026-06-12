@@ -2,6 +2,7 @@ import { motion } from "motion/react";
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Dot } from "recharts";
 import { useI18n } from "../i18n";
 import { usePortfolio } from "../portfolio";
+import { useTheme } from "../theme";
 
 const fallbackData = [
   { day: "Sun", value: 0.62 },
@@ -16,6 +17,7 @@ const fallbackData = [
 export function StressRecoveryChart() {
   const { t, d: tr } = useI18n();
   const { data } = usePortfolio();
+  const { tokens } = useTheme();
   const tt = data?.widgets?.ttm_trend;
   const chartData = tt?.points?.length
     ? tt.points.map((p: any) => ({ day: p.period, value: p.value }))
@@ -24,8 +26,8 @@ export function StressRecoveryChart() {
   return (
     <div className="p-6 flex flex-col gap-3">
       <div className="flex items-center justify-between">
-        <span style={{ fontSize: "0.85rem", fontWeight: 300, color: "#1a2030" }}>{t("stress_recovery")}</span>
-        <span style={{ fontSize: "1.3rem", fontWeight: 600, color: "#1a2030" }}>{delta}</span>
+        <span style={{ fontSize: "0.85rem", fontWeight: 300, color: "var(--text)" }}>{t("stress_recovery")}</span>
+        <span style={{ fontSize: "1.3rem", fontWeight: 600, color: "var(--text)" }}>{delta}</span>
       </div>
 
       <div style={{ height: 90 }}>
@@ -36,9 +38,9 @@ export function StressRecoveryChart() {
             <Line
               type="monotone"
               dataKey="value"
-              stroke="#1a2030"
+              stroke={tokens.text}
               strokeWidth={1.5}
-              dot={{ r: 3, fill: "#1a2030", strokeWidth: 0 }}
+              dot={{ r: 3, fill: tokens.text, strokeWidth: 0 }}
               activeDot={{ r: 4, fill: "#2d7a5f" }}
               animationDuration={1200}
             />

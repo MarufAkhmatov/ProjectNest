@@ -23,8 +23,8 @@ export function WellnessChart() {
   return (
     <div className="p-6 flex flex-col gap-4" style={{ height: "100%" }}>
       <div className="flex items-center justify-between">
-        <span style={{ color: "#1a2030", fontSize: "0.85rem", fontWeight: 300 }}>{t("wellness_progress")}</span>
-        <span style={{ fontSize: "1.5rem", fontWeight: 600, color: "#1a2030" }}>{pct}%</span>
+        <span style={{ color: "var(--text)", fontSize: "0.85rem", fontWeight: 300 }}>{t("wellness_progress")}</span>
+        <span style={{ fontSize: "1.5rem", fontWeight: 600, color: "var(--text)" }}>{pct}%</span>
       </div>
 
       <div className="flex gap-4">
@@ -34,12 +34,12 @@ export function WellnessChart() {
             onClick={() => setActive(tab)}
             style={{
               fontSize: "0.75rem",
-              color: active === tab ? "#1a2030" : "#9aa5b4",
+              color: active === tab ? "var(--text)" : "#9aa5b4",
               fontWeight: active === tab ? 600 : 300,
               paddingBottom: "2px",
               background: "none",
               border: "none",
-              borderBottom: active === tab ? "2px solid #1a2030" : "2px solid transparent",
+              borderBottom: active === tab ? "2px solid var(--text)" : "2px solid transparent",
               cursor: "pointer",
             }}
           >

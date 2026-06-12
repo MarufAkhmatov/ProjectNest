@@ -18,7 +18,7 @@ export function PatientFlowChart() {
   return (
     <div className="p-6 flex flex-col gap-3" style={{ height: "100%" }}>
       <div className="flex items-center justify-between">
-        <span style={{ fontSize: "0.85rem", fontWeight: 300, color: "#1a2030" }}>{t("patient_flow")}</span>
+        <span style={{ fontSize: "0.85rem", fontWeight: 300, color: "var(--text)" }}>{t("patient_flow")}</span>
         <button style={{ background: "none", border: "none", cursor: "pointer", color: "#9aa5b4", fontSize: "1rem" }}>···</button>
       </div>
 
@@ -47,7 +47,7 @@ export function PatientFlowChart() {
           </PieChart>
         </ResponsiveContainer>
         <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", pointerEvents: "none" }}>
-          <span style={{ fontSize: "1.7rem", fontWeight: 700, color: "#1a2030", lineHeight: 1 }}>{total}</span>
+          <span style={{ fontSize: "1.7rem", fontWeight: 700, color: "var(--text)", lineHeight: 1 }}>{total}</span>
           <span style={{ fontSize: "0.68rem", color: "#9aa5b4", marginTop: 4 }}>{pf ? `${pf.completion_pct}%` : t("capacity68")}</span>
         </div>
       </div>
@@ -57,14 +57,14 @@ export function PatientFlowChart() {
         <div className="flex items-center gap-2">
           <span style={{ width: 9, height: 9, borderRadius: 3, background: "#d4a84b", flexShrink: 0 }} />
           <div>
-            <div style={{ fontSize: "1rem", fontWeight: 700, color: "#1a2030", lineHeight: 1 }}>{completedN}</div>
+            <div style={{ fontSize: "1rem", fontWeight: 700, color: "var(--text)", lineHeight: 1 }}>{completedN}</div>
             <div style={{ fontSize: "0.65rem", color: "#9aa5b4", marginTop: 2 }}>{t("completed")}</div>
           </div>
         </div>
         <div className="flex items-center gap-2">
           <span style={{ width: 9, height: 9, borderRadius: 3, background: "#9b59b6", flexShrink: 0 }} />
           <div>
-            <div style={{ fontSize: "1rem", fontWeight: 700, color: "#1a2030", lineHeight: 1 }}>{openN}</div>
+            <div style={{ fontSize: "1rem", fontWeight: 700, color: "var(--text)", lineHeight: 1 }}>{openN}</div>
             <div style={{ fontSize: "0.65rem", color: "#9aa5b4", marginTop: 2 }}>{t("upcoming")}</div>
           </div>
         </div>

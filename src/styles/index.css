@@ -2,6 +2,18 @@
 @import './tailwind.css';
 @import './theme.css';
 
+/* Theme tokens (defaults = light; overridden at runtime by ThemeProvider) */
+:root {
+  --bg: linear-gradient(180deg, #7A9AA8 0%, #B7CFD7 50%, #DCECEF 100%);
+  --card: #ffffff;
+  --text: #1a2030;
+  --soft: #6b7a8d;
+  --muted: #9aa5b4;
+  --divider: #e4eaef;
+  --surface2: #eef1f4;
+  --shadow: 0 8px 24px rgba(0,0,0,0.06);
+}
+
 /* Designed scrollbar for scrollable panels (PM Leaderboard, etc.) */
 .pn-scroll {
   scrollbar-width: thin;

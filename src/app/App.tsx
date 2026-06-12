@@ -2,9 +2,10 @@ import { useState, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import {
   Calendar, Users, LayoutGrid, FileText,
-  Search, Settings, Bell, ChevronDown, MessageCircle, Sparkles, X, Upload,
+  Search, Settings, Bell, ChevronDown, MessageCircle, Sparkles, X, Upload, Sun, Moon,
 } from "lucide-react";
 import { usePortfolio } from "./portfolio";
+import { useTheme } from "./theme";
 import { WellnessChart } from "./components/WellnessChart";
 import { StressRecoveryChart } from "./components/StressRecoveryChart";
 import { HRVChart } from "./components/HRVChart";
@@ -32,14 +33,14 @@ const glassCircle: React.CSSProperties = {
   WebkitBackdropFilter: "blur(14px)",
 };
 
-/* ---------- white card ---------- */
+/* ---------- card (theme-aware via CSS vars) ---------- */
 const card: React.CSSProperties = {
-  background: "#ffffff",
+  background: "var(--card)",
   borderRadius: 14,
-  boxShadow: "0 8px 24px rgba(0,0,0,0.06)",
+  boxShadow: "var(--shadow)",
   overflow: "hidden",
 };
-const innerDivider = "1px solid #eef1f4";
+const innerDivider = "1px solid var(--divider)";
 const GAP = 10;
 
 const navIcons = [
@@ -88,6 +89,7 @@ export default function App() {
   const isMobile = bp === "mobile";
   const [ariaOpen, setAriaOpen] = useState(false);
   const { data, upload, online } = usePortfolio();
+  const { mode, toggle } = useTheme();
   const hm = data?.widgets?.header_metrics;
   const fileRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
@@ -129,7 +131,7 @@ export default function App() {
         minHeight: "100vh",
         height: isDesktop ? "100vh" : "auto",
         overflow: isDesktop ? "hidden" : "auto",
-        background: "linear-gradient(180deg, #7A9AA8 0%, #B7CFD7 50%, #DCECEF 100%)",
+        background: "var(--bg)",
         fontFamily: "var(--font-sans)",
         display: "flex",
         flexDirection: "column",
@@ -187,6 +189,15 @@ export default function App() {
               </button>
             ))}
           </div>
+
+          {/* Theme toggle — always */}
+          <button
+            onClick={toggle}
+            title={mode === "dark" ? "Light mode" : "Dark mode"}
+            style={{ width: 42, height: 42, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#3f5560", ...glassCircle }}
+          >
+            {mode === "dark" ? <Sun size={17} /> : <Moon size={17} />}
+          </button>
 
           {/* Upload Jira export — always */}
           <input ref={fileRef} type="file" accept=".csv,.xlsx,.xlsm,.html,.htm" onChange={onUpload} style={{ display: "none" }} />

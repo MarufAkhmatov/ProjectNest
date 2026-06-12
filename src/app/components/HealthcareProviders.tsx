@@ -29,7 +29,7 @@ export function HealthcareProviders() {
     <div className="flex flex-col gap-3" style={{ height: "100%", minHeight: 0 }}>
       {/* Title + period filter + expand */}
       <div className="flex items-center justify-between" style={{ flexWrap: "wrap", gap: 8 }}>
-        <span style={{ fontSize: "0.9rem", fontWeight: 600, color: "#1a2030" }}>{t("healthcare_providers")}</span>
+        <span style={{ fontSize: "0.9rem", fontWeight: 600, color: "var(--text)" }}>{t("healthcare_providers")}</span>
         <div className="flex items-center gap-1" style={{ flexWrap: "wrap" }}>
           {PERIODS.map((p) => (
             <button
@@ -38,7 +38,7 @@ export function HealthcareProviders() {
               style={{
                 padding: "3px 9px", borderRadius: 999, border: "none", cursor: "pointer",
                 fontSize: "0.66rem", fontWeight: period === p ? 600 : 400,
-                background: period === p ? "#0c5563" : "#eef1f4",
+                background: period === p ? "#0c5563" : "var(--surface2)",
                 color: period === p ? "#ffffff" : "#6b7a8d",
                 transition: "all 0.15s",
               }}
@@ -48,7 +48,7 @@ export function HealthcareProviders() {
           ))}
           {!big && (
             <button onClick={() => setExpanded(true)} title="Expand"
-              style={{ width: 26, height: 26, borderRadius: 8, background: "#eef1f4", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", marginLeft: 2 }}>
+              style={{ width: 26, height: 26, borderRadius: 8, background: "var(--surface2)", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", marginLeft: 2 }}>
               <Maximize2 size={12} color="#6b7a8d" />
             </button>
           )}
@@ -56,7 +56,7 @@ export function HealthcareProviders() {
       </div>
 
       {/* Header row */}
-      <div style={{ display: "grid", gridTemplateColumns: Cols, gap: 6, fontSize: "0.68rem", color: "#9aa5b4", paddingBottom: 4, borderBottom: "1px solid #e4eaef" }}>
+      <div style={{ display: "grid", gridTemplateColumns: Cols, gap: 6, fontSize: "0.68rem", color: "var(--muted)", paddingBottom: 4, borderBottom: "1px solid var(--divider)" }}>
         <span>{t("lb_rank")}</span>
         <span>{t("provider_name")}</span>
         <span style={{ textAlign: "center" }}>{t("lb_projects")}</span>
@@ -83,7 +83,7 @@ export function HealthcareProviders() {
             }}>#{r.rank}</span>
             <div className="flex items-center gap-2" style={{ minWidth: 0 }}>
               <img src={avatar(r.pm)} alt={r.pm} style={{ width: 28, height: 28, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} />
-              <span style={{ fontSize: "0.76rem", fontWeight: 400, color: "#1a2030", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }} title={r.pm}>{r.pm}</span>
+              <span style={{ fontSize: "0.76rem", fontWeight: 400, color: "var(--text)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }} title={r.pm}>{r.pm}</span>
             </div>
             <span style={{ fontSize: "0.8rem", fontWeight: 600, color: "#2d7a5f", textAlign: "center" }}>{r.projects_completed}</span>
             <span style={{ fontSize: "0.8rem", fontWeight: 600, color: "#9b59b6", textAlign: "center" }}>{r.tasks_completed}</span>
@@ -111,11 +111,11 @@ export function HealthcareProviders() {
             <motion.div
               initial={{ scale: 0.95, y: 16 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 16 }}
               onClick={(e) => e.stopPropagation()}
-              style={{ background: "#fff", borderRadius: 18, boxShadow: "0 30px 80px rgba(0,0,0,0.3)", width: "min(720px, 94vw)", height: "min(80vh, 760px)", padding: 24, display: "flex", flexDirection: "column" }}
+              style={{ background: "var(--card)", borderRadius: 18, boxShadow: "0 30px 80px rgba(0,0,0,0.3)", width: "min(720px, 94vw)", height: "min(80vh, 760px)", padding: 24, display: "flex", flexDirection: "column" }}
             >
               <div style={{ flex: 1, minHeight: 0, position: "relative" }}>
                 <button onClick={() => setExpanded(false)} title="Shrink"
-                  style={{ position: "absolute", top: -6, right: -6, width: 30, height: 30, borderRadius: 9, background: "#eef1f4", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1 }}>
+                  style={{ position: "absolute", top: -6, right: -6, width: 30, height: 30, borderRadius: 9, background: "var(--surface2)", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1 }}>
                   <Minimize2 size={14} color="#6b7a8d" />
                 </button>
                 <Table big />
