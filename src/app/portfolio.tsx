@@ -11,12 +11,13 @@ interface PortfolioState {
   upload: (file: File) => Promise<any>;
   ask: (q: string) => Promise<any>;
   pmBoard: (period: string) => Promise<any>;
+  notifications: () => Promise<any>;
 }
 
 const Ctx = createContext<PortfolioState>({
   data: null, loading: true, online: false, meta: null,
   refresh: () => {}, upload: async () => ({}), ask: async () => ({}),
-  pmBoard: async () => ({ rows: [] }),
+  pmBoard: async () => ({ rows: [] }), notifications: async () => ({ epics: [], tasks: [] }),
 });
 
 export function PortfolioProvider({ children }: { children: ReactNode }) {
@@ -73,8 +74,17 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const notifications = useCallback(async () => {
+    try {
+      const r = await fetch(`${API}/api/notifications`);
+      return await r.json();
+    } catch {
+      return { epics: [], tasks: [] };
+    }
+  }, []);
+
   return (
-    <Ctx.Provider value={{ data, loading, online, meta, refresh, upload, ask, pmBoard }}>
+    <Ctx.Provider value={{ data, loading, online, meta, refresh, upload, ask, pmBoard, notifications }}>
       {children}
     </Ctx.Provider>
   );

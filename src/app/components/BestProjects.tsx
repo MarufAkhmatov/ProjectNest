@@ -23,7 +23,14 @@ export function BestProjects() {
           <div key={i} className="flex flex-col gap-2">
             <div className="flex items-center justify-between gap-2">
               <div style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
-                <span style={{ fontSize: "0.76rem", fontWeight: 600, color: "var(--text)" }}>{p.key || p.name}</span>
+                <div className="flex items-center gap-2">
+                  <span style={{ fontSize: "0.76rem", fontWeight: 600, color: "var(--text)" }}>{p.key || p.name}</span>
+                  {p.duration_days != null && (
+                    <span style={{ fontSize: "0.6rem", fontWeight: 600, color: "#0c5563", background: "var(--surface2)", borderRadius: 5, padding: "1px 6px", whiteSpace: "nowrap" }}>
+                      {p.duration_days} {t("days")}
+                    </span>
+                  )}
+                </div>
                 {p.summary && (
                   <span style={{ fontSize: "0.63rem", color: "#9aa5b4", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 165 }} title={p.summary}>
                     {p.summary}

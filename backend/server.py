@@ -108,6 +108,12 @@ class Handler(BaseHTTPRequestHandler):
             from app.metrics import engines as E
             period = parse_qs(urlparse(self.path).query).get("period", ["all"])[0]
             return self._send({"has_data": True, **E.pm_leaderboard_period(data["issues"], period)})
+        if route == "/api/notifications":
+            data = storage.load_current()
+            if not data:
+                return self._send({"has_data": False, "epics": [], "tasks": []})
+            from app.metrics import engines as E
+            return self._send({"has_data": True, **E.recent_closures(data["issues"])})
         return self._send({"error": "not found"}, 404)
 
     def do_POST(self):

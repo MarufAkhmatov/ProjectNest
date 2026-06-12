@@ -6,6 +6,10 @@ import {
 } from "lucide-react";
 import { usePortfolio } from "./portfolio";
 import { useTheme } from "./theme";
+import { useAvatar, USER_ID } from "./avatars";
+import { AvatarManager } from "./components/AvatarManager";
+import { NotificationsBell } from "./components/NotificationsBell";
+import { Celebrations } from "./components/Celebrations";
 import { WellnessChart } from "./components/WellnessChart";
 import { StressRecoveryChart } from "./components/StressRecoveryChart";
 import { HRVChart } from "./components/HRVChart";
@@ -90,6 +94,8 @@ export default function App() {
   const [ariaOpen, setAriaOpen] = useState(false);
   const { data, upload, online } = usePortfolio();
   const { mode, toggle } = useTheme();
+  const userAvatar = useAvatar(USER_ID, "/temur.jpg");
+  const [avatarMgr, setAvatarMgr] = useState(false);
   const hm = data?.widgets?.header_metrics;
   const fileRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
@@ -224,16 +230,15 @@ export default function App() {
               <button style={{ width: 42, height: 42, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "var(--header-icon)", ...glassCircle }}>
                 <Settings size={17} />
               </button>
-              <button style={{ width: 42, height: 42, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", position: "relative", color: "var(--header-icon)", ...glassCircle }}>
-                <Bell size={17} />
-                <span style={{ position: "absolute", top: 8, right: 9, width: 7, height: 7, borderRadius: "50%", background: "#e53e3e", border: "1.5px solid #cfe0e2" }} />
-              </button>
+              <NotificationsBell />
             </>
           )}
 
           <img
-            src="/temur.jpg"
+            src={userAvatar}
             onError={(e) => { (e.currentTarget as HTMLImageElement).src = "https://ui-avatars.com/api/?name=Temur&background=8a5a2b&color=fff&bold=true"; }}
+            onClick={() => setAvatarMgr(true)}
+            title="Manage avatars"
             alt="Temur"
             style={{ width: 42, height: 42, borderRadius: "50%", objectFit: "cover", border: "2px solid rgba(255,255,255,0.7)", cursor: "pointer", flexShrink: 0 }}
           />
@@ -349,6 +354,14 @@ export default function App() {
           </motion.button>
         </>
       )}
+
+      {/* Avatar manager (open from the user avatar) */}
+      <AnimatePresence>
+        {avatarMgr && <AvatarManager onClose={() => setAvatarMgr(false)} />}
+      </AnimatePresence>
+
+      {/* Celebrations: recently-closed epics + leaderboard changes (confetti) */}
+      <Celebrations />
     </div>
   );
 }

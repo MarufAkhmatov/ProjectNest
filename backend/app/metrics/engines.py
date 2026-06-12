@@ -253,12 +253,15 @@ def project_health(issues):
         score = round(max(0.0, min(100.0, score)), 1)
         cat = ("Excellent" if score >= 85 else "Good" if score >= 70
                else "Warning" if score >= 50 else "Critical")
+        dur = None
+        if e.get("created") and e.get("resolved"):
+            dur = max(0, (_d(e["resolved"]) - _d(e["created"])).days)
         scored.append({
             "key": e["key"], "project": e["project"], "summary": e["summary"],
             "pm": e["pm"], "status": e["status"], "score": score, "category": cat,
             "ttm": ttm, "lead_time": lead, "blocked": blocked_links,
             "dependencies": dep_count, "overdue_children": overdue,
-            "children": len(ch), "completed": is_done(e),
+            "children": len(ch), "completed": is_done(e), "duration_days": dur,
         })
     scored.sort(key=lambda x: x["score"], reverse=True)
     return scored
@@ -353,6 +356,34 @@ def pm_leaderboard(issues):
     for idx, b in enumerate(board, 1):
         b["rank"] = idx
     return board
+
+
+def recent_closures(issues, days=14, limit=30):
+    """Items resolved within `days` of the most recent resolution date.
+
+    Used for bell notifications and 'recently closed' celebrations.
+    """
+    done = [i for i in issues if is_done(i) and i.get("resolved")]
+    if not done:
+        return {"epics": [], "tasks": [], "ref": None}
+    ref = max(_d(i["resolved"]) for i in done)
+    cutoff = ref - dt.timedelta(days=days)
+    recent = [i for i in done if _d(i["resolved"]) >= cutoff]
+    recent.sort(key=lambda i: _d(i["resolved"]), reverse=True)
+
+    def fmt(i):
+        return {
+            "key": i["key"], "type": i["type"], "pm": i["pm"],
+            "summary": i.get("summary", ""), "project": i.get("project", ""),
+            "resolved": i["resolved"][:10] if i.get("resolved") else "",
+            "duration_days": (max(0, (_d(i["resolved"]) - _d(i["created"])).days)
+                              if i.get("created") and i.get("resolved") else None),
+        }
+
+    epics_r = [fmt(i) for i in recent if i["is_epic"]][:limit]
+    tasks_r = [fmt(i) for i in recent if not i["is_epic"]][:limit]
+    return {"epics": epics_r, "tasks": tasks_r, "ref": ref.isoformat(),
+            "window_days": days, "total": len(epics_r) + len(tasks_r)}
 
 
 def pm_leaderboard_period(issues, period="all", ref=None):

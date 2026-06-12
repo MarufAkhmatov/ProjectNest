@@ -3,11 +3,13 @@ import { Maximize2, Minimize2 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { useI18n } from "../i18n";
 import { usePortfolio } from "../portfolio";
+import { useAvatar } from "../avatars";
 
 const PERIODS = ["all", "year", "quarter", "month", "week"];
 
-function avatar(name: string) {
-  return `https://i.pravatar.cc/64?u=${encodeURIComponent(name)}`;
+function LeaderAvatar({ pm }: { pm: string }) {
+  const url = useAvatar(pm, `https://i.pravatar.cc/64?u=${encodeURIComponent(pm)}`);
+  return <img src={url} alt={pm} style={{ width: 28, height: 28, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} />;
 }
 
 export function HealthcareProviders() {
@@ -25,7 +27,7 @@ export function HealthcareProviders() {
 
   const Cols = "44px 1.9fr 0.8fr 0.8fr 0.9fr";
 
-  const Table = useCallback(({ big }: { big?: boolean }) => (
+  const renderTable = (big: boolean) => (
     <div className="flex flex-col gap-3" style={{ height: "100%", minHeight: 0 }}>
       {/* Title + period filter + expand */}
       <div className="flex items-center justify-between" style={{ flexWrap: "wrap", gap: 8 }}>
@@ -77,12 +79,15 @@ export function HealthcareProviders() {
             transition={{ delay: Math.min(i * 0.03, 0.3) }}
             style={{ display: "grid", gridTemplateColumns: Cols, gap: 6, alignItems: "center" }}
           >
-            <span style={{
-              fontSize: "0.72rem", fontWeight: 700,
-              color: r.rank === 1 ? "#d4a84b" : r.rank === 2 ? "#9aa5b4" : r.rank === 3 ? "#cd7f32" : "#6b7a8d",
-            }}>#{r.rank}</span>
+            {r.rank <= 3 ? (
+              <span style={{ fontSize: "1.15rem", lineHeight: 1, textAlign: "center" }} title={`#${r.rank}`}>
+                {r.rank === 1 ? "🥇" : r.rank === 2 ? "🥈" : "🥉"}
+              </span>
+            ) : (
+              <span style={{ fontSize: "0.72rem", fontWeight: 700, color: "#6b7a8d" }}>#{r.rank}</span>
+            )}
             <div className="flex items-center gap-2" style={{ minWidth: 0 }}>
-              <img src={avatar(r.pm)} alt={r.pm} style={{ width: 28, height: 28, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} />
+              <LeaderAvatar pm={r.pm} />
               <span style={{ fontSize: "0.76rem", fontWeight: 400, color: "var(--text)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }} title={r.pm}>{r.pm}</span>
             </div>
             <span style={{ fontSize: "0.8rem", fontWeight: 600, color: "#2d7a5f", textAlign: "center" }}>{r.projects_completed}</span>
@@ -92,12 +97,12 @@ export function HealthcareProviders() {
         ))}
       </div>
     </div>
-  ), [rows, period, t]);
+  );
 
   return (
     <>
       <div className="p-6" style={{ height: "100%", minHeight: 0 }}>
-        <Table />
+        {renderTable(false)}
       </div>
 
       {/* Expanded (enlarge) modal */}
@@ -118,7 +123,7 @@ export function HealthcareProviders() {
                   style={{ position: "absolute", top: -6, right: -6, width: 30, height: 30, borderRadius: 9, background: "var(--surface2)", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1 }}>
                   <Minimize2 size={14} color="#6b7a8d" />
                 </button>
-                <Table big />
+                {renderTable(true)}
               </div>
             </motion.div>
           </motion.div>
