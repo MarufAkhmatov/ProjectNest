@@ -70,7 +70,7 @@ def build(issues: list[dict]) -> dict:
 
     # ---- widget: Best Projects -> top 3 by health (key + epic summary) ----
     palette = ["#2d7a5f", "#9b59b6", "#d4a84b"]
-    top3 = [{"key": h["key"], "summary": h.get("summary") or "",
+    top3 = [{"key": h["key"], "url": h.get("url") or "", "summary": h.get("summary") or "",
              "name": f"{h['key']} ({h['project']})", "pct": round(h["score"]),
              "duration_days": h.get("duration_days"),
              "color": palette[i % 3]} for i, h in enumerate(health[:3])]

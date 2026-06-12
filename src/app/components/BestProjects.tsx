@@ -1,6 +1,7 @@
 import { motion } from "motion/react";
 import { useI18n } from "../i18n";
 import { usePortfolio } from "../portfolio";
+import { jiraUrl } from "../jira";
 
 const fallback = [
   { name: "Cardio Care", pct: 82, color: "#2d7a5f" },
@@ -11,6 +12,7 @@ const fallback = [
 export function BestProjects() {
   const { t } = useI18n();
   const { data } = usePortfolio();
+  const base = data?.meta?.jira_base;
   const projects = data?.widgets?.top_projects?.length ? data.widgets.top_projects : fallback;
   return (
     <div className="p-6 flex flex-col gap-4" style={{ height: "100%" }}>
@@ -24,7 +26,12 @@ export function BestProjects() {
             <div className="flex items-center justify-between gap-2">
               <div style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
                 <div className="flex items-center gap-2">
-                  <span style={{ fontSize: "0.76rem", fontWeight: 600, color: "var(--text)" }}>{p.key || p.name}</span>
+                  {p.key ? (
+                    <a className="jira-link" href={jiraUrl(p.key, p.url, base)} target="_blank" rel="noopener noreferrer"
+                       style={{ fontSize: "0.76rem", fontWeight: 600, color: "var(--text)" }}>{p.key}</a>
+                  ) : (
+                    <span style={{ fontSize: "0.76rem", fontWeight: 600, color: "var(--text)" }}>{p.name}</span>
+                  )}
                   {p.duration_days != null && (
                     <span style={{ fontSize: "0.6rem", fontWeight: 600, color: "#0c5563", background: "var(--surface2)", borderRadius: 5, padding: "1px 6px", whiteSpace: "nowrap" }}>
                       {p.duration_days} {t("days")}
@@ -32,9 +39,16 @@ export function BestProjects() {
                   )}
                 </div>
                 {p.summary && (
-                  <span style={{ fontSize: "0.63rem", color: "#9aa5b4", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 165 }} title={p.summary}>
-                    {p.summary}
-                  </span>
+                  p.key ? (
+                    <a className="jira-link" href={jiraUrl(p.key, p.url, base)} target="_blank" rel="noopener noreferrer"
+                       style={{ fontSize: "0.63rem", color: "#9aa5b4", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 165, display: "block" }} title={p.summary}>
+                      {p.summary}
+                    </a>
+                  ) : (
+                    <span style={{ fontSize: "0.63rem", color: "#9aa5b4", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 165 }} title={p.summary}>
+                      {p.summary}
+                    </span>
+                  )
                 )}
               </div>
               <span style={{ fontSize: "0.72rem", fontWeight: 600, color: p.color, flexShrink: 0 }}>{p.pct}%</span>

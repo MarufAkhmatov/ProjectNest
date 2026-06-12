@@ -40,6 +40,7 @@ _ALIASES = {
                      "очки истории", "ballar"],
     "history": ["status history", "changelog", "status changes", "history",
                 "история статусов", "журнал изменений", "holat tarixi"],
+    "url": ["url", "link", "issue url", "ссылка"],
 }
 
 
@@ -225,6 +226,7 @@ def normalize_rows(rows: list[dict], default_project: str = "") -> list[dict]:
         history = _parse_history(_get(row, "history"), created, resolved, status_c)
         issues.append({
             "key": key,
+            "url": _get(row, "url"),
             "project": project,
             "type": itype,
             "is_epic": is_epic,

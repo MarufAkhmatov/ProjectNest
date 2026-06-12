@@ -46,10 +46,16 @@ def _ingest_path(path: Path, filename: str, mode: str = "replace"):
             issues = list(by_key.values())
 
     payload = aggregate.build(issues)
+    jira_base = ""
+    for i in issues:
+        if i.get("url") and "/browse/" in i["url"]:
+            jira_base = i["url"].split("/browse/")[0]
+            break
     meta = {
         "filename": filename, "stored_as": path.name, "mode": mode,
         "issues": len(issues), "epics": payload["kpis"]["total_epics"],
         "projects": sorted({i["project"] for i in issues}),
+        "jira_base": jira_base,
         "uploaded_at": dt.datetime.now().isoformat(timespec="seconds"),
     }
     storage.set_current({"issues": issues, "payload": payload}, meta)

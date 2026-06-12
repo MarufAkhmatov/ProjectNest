@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { Bell, CheckCircle2 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { usePortfolio } from "../portfolio";
+import { jiraUrl } from "../jira";
 
 const glassCircle: React.CSSProperties = {
   background: "var(--glass-bg2)",
@@ -14,7 +15,8 @@ const glassCircle: React.CSSProperties = {
 const SEEN_KEY = "pn-seen-notif";
 
 export function NotificationsBell() {
-  const { notifications } = usePortfolio();
+  const { notifications, data } = usePortfolio();
+  const base = data?.meta?.jira_base;
   const [open, setOpen] = useState(false);
   const [epics, setEpics] = useState<any[]>([]);
   const [tasks, setTasks] = useState<any[]>([]);
@@ -85,9 +87,9 @@ export function NotificationsBell() {
                   <CheckCircle2 size={15} color="#2d7a5f" style={{ marginTop: 2, flexShrink: 0 }} />
                   <div style={{ minWidth: 0 }}>
                     <div style={{ fontSize: "0.76rem", color: "var(--text)" }}>
-                      <b>{x.key}</b> <span style={{ fontSize: "0.64rem", color: "#2d7a5f" }}>{x.kind}</span>
+                      <a className="jira-link" href={jiraUrl(x.key, x.url, base)} target="_blank" rel="noopener noreferrer"><b>{x.key}</b></a> <span style={{ fontSize: "0.64rem", color: "#2d7a5f" }}>{x.kind}</span>
                     </div>
-                    <div style={{ fontSize: "0.68rem", color: "var(--muted)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }} title={x.summary}>{x.summary}</div>
+                    <a className="jira-link" href={jiraUrl(x.key, x.url, base)} target="_blank" rel="noopener noreferrer" style={{ fontSize: "0.68rem", color: "var(--muted)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", display: "block" }} title={x.summary}>{x.summary}</a>
                     <div style={{ fontSize: "0.62rem", color: "var(--soft)" }}>{x.pm} · {x.resolved}</div>
                   </div>
                 </div>

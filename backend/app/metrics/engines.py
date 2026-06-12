@@ -257,7 +257,7 @@ def project_health(issues):
         if e.get("created") and e.get("resolved"):
             dur = max(0, (_d(e["resolved"]) - _d(e["created"])).days)
         scored.append({
-            "key": e["key"], "project": e["project"], "summary": e["summary"],
+            "key": e["key"], "url": e.get("url", ""), "project": e["project"], "summary": e["summary"],
             "pm": e["pm"], "status": e["status"], "score": score, "category": cat,
             "ttm": ttm, "lead_time": lead, "blocked": blocked_links,
             "dependencies": dep_count, "overdue_children": overdue,
@@ -395,7 +395,7 @@ def recent_closures(issues, days=14, limit=30):
 
     def fmt(i):
         return {
-            "key": i["key"], "type": i["type"], "pm": i["pm"],
+            "key": i["key"], "url": i.get("url", ""), "type": i["type"], "pm": i["pm"],
             "summary": i.get("summary", ""), "project": i.get("project", ""),
             "resolved": i["resolved"][:10] if i.get("resolved") else "",
             "duration_days": (max(0, (_d(i["resolved"]) - _d(i["created"])).days)

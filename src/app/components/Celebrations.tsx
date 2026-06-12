@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "motion/react";
 import confetti from "canvas-confetti";
 import { usePortfolio } from "../portfolio";
 
-type Cel = { id: string; emoji: string; title: string; subtitle: string };
+type Cel = { id: string; emoji: string; title: string; subtitle: string; url?: string };
 const PERIODS = ["week", "month", "quarter", "year"];
 const COLORS = ["#3ad94f", "#4EB6A6", "#d4a84b", "#9b59b6", "#ffffff"];
 
@@ -36,7 +36,7 @@ export function Celebrations() {
       const seen = new Set(JSON.parse(localStorage.getItem("pn-seen-epics") || "[]"));
       if (!firstTime) {
         epics.filter((e) => !seen.has(e.key)).slice(0, 3).forEach((e) =>
-          cels.push({ id: "e" + e.key, emoji: "🏆", title: `Epic ${e.key} completed!`, subtitle: e.summary || "" }));
+          cels.push({ id: "e" + e.key, emoji: "🏆", title: `Epic ${e.key} completed!`, subtitle: e.summary || "", url: e.url }));
       }
       localStorage.setItem("pn-seen-epics", JSON.stringify(epics.map((e) => e.key)));
 
@@ -107,6 +107,12 @@ export function Celebrations() {
             <div style={{ fontSize: "3.2rem", lineHeight: 1, marginBottom: 12 }}>{current.emoji}</div>
             <div style={{ fontSize: "1.2rem", fontWeight: 700, color: "var(--text)", marginBottom: 6 }}>{current.title}</div>
             <div style={{ fontSize: "0.85rem", color: "var(--soft)", lineHeight: 1.4 }}>{current.subtitle}</div>
+            {current.url && (
+              <a href={current.url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}
+                 style={{ display: "inline-block", marginTop: 12, fontSize: "0.78rem", fontWeight: 600, color: "#2d7a5f", textDecoration: "none" }}>
+                Open in Jira ↗
+              </a>
+            )}
           </motion.div>
         </motion.div>
       )}

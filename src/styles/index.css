@@ -25,6 +25,18 @@
   --active-icon: #0c5563;
 }
 
+/* Clickable Jira issue keys / names */
+.jira-link {
+  color: inherit;
+  text-decoration: none;
+  cursor: pointer;
+  transition: color 0.15s;
+}
+.jira-link:hover {
+  color: #2d7a5f;
+  text-decoration: underline;
+}
+
 /* Designed scrollbar for scrollable panels (PM Leaderboard, etc.) */
 .pn-scroll {
   scrollbar-width: thin;

@@ -133,6 +133,8 @@ def _parse_jira_printable(text: str) -> list[dict]:
         key = km.group(1)
         sm = re.search(r"/browse/" + re.escape(key) + r'"[^>]*>(.*?)</a>', p, re.S)
         summary = _clean(sm.group(1)) if sm else ""
+        hm = re.search(r'href="([^"]*?/browse/' + re.escape(key) + r')"', p)
+        url = hm.group(1) if hm else ""
 
         sub = re.search(r'subText[^>]*>(.*?)</span>', p, re.S)
         subtext = _clean(sub.group(1)) if sub else ""
@@ -157,6 +159,7 @@ def _parse_jira_printable(text: str) -> list[dict]:
 
         rows.append({
             "Issue key": key,
+            "url": url,
             "Summary": summary,
             "Status": fields.get("Статус") or fields.get("Status") or "",
             "Issue Type": fields.get("Тип") or fields.get("Type") or "",
