@@ -40,12 +40,12 @@ export const DARK = {
   glassShadow: "0 8px 26px rgba(0,0,0,0.45), inset 0 1px 1px rgba(255,255,255,0.05)",
   headerIcon: "#aeb9c6",
   searchText: "#e8eef6",
-  // active menu buttons — glass kept, glowing green
-  activeBg: "rgba(45,122,95,0.32)",
-  activeText: "#daffe9",
-  activeGlow: "0 0 18px rgba(74,182,166,0.55), inset 0 0 0 1px rgba(74,182,166,0.5)",
+  // active menu buttons — glass kept, glowing in the IPAK logo green (#3ad94f)
+  activeBg: "rgba(58,217,79,0.20)",
+  activeText: "#c7ffce",
+  activeGlow: "0 0 18px rgba(58,217,79,0.55), inset 0 0 0 1px rgba(58,217,79,0.55)",
   activeChip: "rgba(255,255,255,0.14)",
-  activeIcon: "#7ef0c8",
+  activeIcon: "#3ad94f",
 };
 
 type Mode = "light" | "dark";
