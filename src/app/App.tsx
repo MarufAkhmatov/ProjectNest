@@ -19,16 +19,16 @@ import { useBreakpoint } from "./useBreakpoint";
 
 /* ---------- glass tokens (nav) ---------- */
 const glassPanel: React.CSSProperties = {
-  background: "rgba(255,255,255,0.4)",
+  background: "var(--glass-bg)",
   backdropFilter: "blur(22px)",
   WebkitBackdropFilter: "blur(22px)",
-  border: "1px solid rgba(255,255,255,0.5)",
-  boxShadow: "0 8px 26px rgba(20,40,55,0.10), inset 0 1px 1px rgba(255,255,255,0.6)",
+  border: "1px solid var(--glass-border)",
+  boxShadow: "var(--glass-shadow)",
 };
 const glassCircle: React.CSSProperties = {
-  background: "rgba(255,255,255,0.3)",
-  border: "1px solid rgba(255,255,255,0.45)",
-  boxShadow: "inset 0 1px 2px rgba(255,255,255,0.45), 0 3px 8px rgba(20,40,55,0.08)",
+  background: "var(--glass-bg2)",
+  border: "1px solid var(--glass-border)",
+  boxShadow: "var(--glass-shadow)",
   backdropFilter: "blur(14px)",
   WebkitBackdropFilter: "blur(14px)",
 };
@@ -160,7 +160,7 @@ export default function App() {
                 <ChevronDown size={14} color="#9aa5b4" />
               </button>
               {navIcons.map(({ icon: Icon, label }) => (
-                <button key={label} title={label} style={{ width: 40, height: 40, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#3f5560", ...glassCircle }}>
+                <button key={label} title={label} style={{ width: 40, height: 40, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "var(--header-icon)", ...glassCircle }}>
                   <Icon size={17} />
                 </button>
               ))}
@@ -194,7 +194,7 @@ export default function App() {
           <button
             onClick={toggle}
             title={mode === "dark" ? "Light mode" : "Dark mode"}
-            style={{ width: 42, height: 42, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#3f5560", ...glassCircle }}
+            style={{ width: 42, height: 42, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "var(--header-icon)", ...glassCircle }}
           >
             {mode === "dark" ? <Sun size={17} /> : <Moon size={17} />}
           </button>
@@ -213,18 +213,18 @@ export default function App() {
           {/* Search — desktop + tablet */}
           {!isMobile && (
             <div style={{ display: "flex", alignItems: "center", gap: 9, borderRadius: 999, padding: "9px 18px", width: isTablet ? 160 : 210, ...glassPanel }}>
-              <Search size={15} color="#52707c" />
-              <input placeholder={t("search")} style={{ border: "none", outline: "none", background: "transparent", fontSize: "0.82rem", color: "#1a2030", fontFamily: "var(--font-sans)", width: "100%" }} />
+              <Search size={15} color="var(--header-icon)" />
+              <input placeholder={t("search")} style={{ border: "none", outline: "none", background: "transparent", fontSize: "0.82rem", color: "var(--search-text)", fontFamily: "var(--font-sans)", width: "100%" }} />
             </div>
           )}
 
           {/* settings + bell — desktop only */}
           {isDesktop && (
             <>
-              <button style={{ width: 42, height: 42, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#3f5560", ...glassCircle }}>
+              <button style={{ width: 42, height: 42, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "var(--header-icon)", ...glassCircle }}>
                 <Settings size={17} />
               </button>
-              <button style={{ width: 42, height: 42, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", position: "relative", color: "#3f5560", ...glassCircle }}>
+              <button style={{ width: 42, height: 42, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", position: "relative", color: "var(--header-icon)", ...glassCircle }}>
                 <Bell size={17} />
                 <span style={{ position: "absolute", top: 8, right: 9, width: 7, height: 7, borderRadius: "50%", background: "#e53e3e", border: "1.5px solid #cfe0e2" }} />
               </button>
