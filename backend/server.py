@@ -135,6 +135,20 @@ def _check_token(tok: str):
 _rag_state = {"building": False, "last": None}
 
 
+def _log_crash():
+    """Append the current exception traceback to logs/server-error.log so
+    handler crashes are diagnosable even when the server runs windowless."""
+    import traceback
+    try:
+        logdir = config.ROOT / "logs"
+        logdir.mkdir(parents=True, exist_ok=True)
+        with open(logdir / "server-error.log", "a", encoding="utf-8") as f:
+            f.write(f"\n[{dt.datetime.now().isoformat(timespec='seconds')}]\n")
+            f.write(traceback.format_exc())
+    except Exception:
+        pass
+
+
 def _rebuild_rag_async():
     """Re-embed the active dataset for Temur's RAG, off the request thread."""
     if _rag_state["building"]:
@@ -389,6 +403,20 @@ class Handler(BaseHTTPRequestHandler):
         self._send({}, 204)
 
     def do_GET(self):
+        # Global guard: a crashed route must log + answer 500, not drop the
+        # connection with an empty reply (impossible to diagnose from the UI).
+        try:
+            return self._do_get()
+        except (ConnectionAbortedError, BrokenPipeError, ConnectionResetError):
+            pass
+        except Exception:
+            _log_crash()
+            try:
+                self._send({"error": "internal server error"}, 500)
+            except Exception:
+                pass
+
+    def _do_get(self):
         route = urlparse(self.path).path
         # public endpoints
         if route == "/api/health":
@@ -564,17 +592,19 @@ class Handler(BaseHTTPRequestHandler):
             return self._send({"users": safe})
         # ---- Temur local AI status ----
         if route == "/api/temur/status":
-            from app import aria, config as cfg
+            # NOTE: never import `aria`/`config` locally inside do_GET — a local
+            # import shadows the module-level name for the WHOLE function and
+            # breaks every earlier route that touches aria (UnboundLocalError).
             try:
                 from app import rag
                 rag_ready = rag.ready()
             except Exception:
                 rag_ready = False
             return self._send({
-                "engine": "ollama-local", "model": cfg.ARIA_MODEL,
+                "engine": "ollama-local", "model": config.ARIA_MODEL,
                 "ollama_up": aria.ollama_up(), "rag_ready": rag_ready,
                 "rag_building": _rag_state["building"], "rag_last": _rag_state["last"],
-                "anthropic_allowed": cfg.ALLOW_ANTHROPIC,
+                "anthropic_allowed": config.ALLOW_ANTHROPIC,
             })
         if route == "/api/voice/status":
             from app import voice
@@ -583,6 +613,18 @@ class Handler(BaseHTTPRequestHandler):
         return self._send({"error": "not found"}, 404)
 
     def do_POST(self):
+        try:
+            return self._do_post()
+        except (ConnectionAbortedError, BrokenPipeError, ConnectionResetError):
+            pass
+        except Exception:
+            _log_crash()
+            try:
+                self._send({"error": "internal server error"}, 500)
+            except Exception:
+                pass
+
+    def _do_post(self):
         route = urlparse(self.path).path
         qs = parse_qs(urlparse(self.path).query)
         length = int(self.headers.get("Content-Length", 0))
