@@ -84,6 +84,11 @@ export function runDashboardAction(a: TemurAction, titles?: Record<string, strin
     case "close_popups":
       fire("pn-close-popups");
       break;
+    case "back":
+      // close whatever is open, then land on the main dashboard
+      fire("pn-close-popups");
+      fire("pn-nav", { view: "dashboard" });
+      break;
     // "temur_mode" is handled locally inside AriaPanel (its own state).
   }
 }

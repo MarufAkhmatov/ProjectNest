@@ -785,6 +785,10 @@ def detect_action(question: str, pm_names: list | None = None, last_action: dict
        has("oyna", "окн", "popup", "попап", "modal", "модал", "window", "hammasini", "все", " all "):
         return {"type": "close_popups"}
 
+    # ---- "back" — close whatever is open and return to the dashboard ----
+    if w(r"\bnazad\b|назад|\bback\b|orqaga|ortga"):
+        return {"type": "back"}
+
     # ---- Temur answer-mode (turbo / fast / smart) ----
     if has("rejim", "режим", "mode") and has("temur", "темур", "javob", "ответ", "answer",
                                              "turbo", "турбо", "smart", "смарт", "flash", "aqlli", "tez"):
@@ -1004,6 +1008,34 @@ def detect_action(question: str, pm_names: list | None = None, last_action: dict
                     prm["state"] = "open"
                 return _drill(prm, label=str(pm))
 
+    # ---- drill: free-text topic search ("Islamic bo'yicha vazifalar",
+    # "kakie zadachi po islamskomu bankingu") — fuzzy, translit-tolerant ----
+    if has("vazifa", "task", "zadach", "задач", "loyiha", "proekt", "проект",
+           "project", "epik", "epic", "issue"):
+        topic = None
+        m1 = re.search(r"([\w'’\-]{4,30}(?:\s+[\w'’\-]{3,20})?)\s+(?:bo'?yicha|buyicha|haqida\w*|tegishli)", ql)
+        m2 = re.search(r"(?:\bpo\b|\bпо\b|\babout\b|\bпро\b)\s+([\w'’\-]{3,30}(?:\s+[\w'’\-]{3,20})?)", ql)
+        if m1:
+            topic = m1.group(1)
+        elif m2:
+            topic = m2.group(1)
+        if topic:
+            _tstop = ("yil", "oy", "chorak", "hafta", "year", "month", "quarter", "week",
+                      "год", "месяц", "квартал", "недел", "epic", "epik", "эпик", "task",
+                      "задач", "zadach", "vazifa", "loyiha", "проект", "proekt", "project",
+                      "yakunlang", "заверш", "completed", "tugat", "yopilgan", "ochiq",
+                      "открыт", "open", "rad", "отклон", "declin", "shu", "этой", "это")
+            words = [w for w in re.split(r"\s+", topic.strip(" ?.!,"))
+                     if w and not re.fullmatch(r"20\d{2}", w)
+                     and not any(w.startswith(s) for s in _tstop)]
+            if words:
+                prm = {"scope": "all", "text": " ".join(words[:4])}
+                if has("yakunlang", "заверш", "completed", "tugat", "yopilgan"):
+                    prm["state"] = "completed"
+                elif has("ochiq", "открыт", "open "):
+                    prm["state"] = "open"
+                return _drill(prm, label=" ".join(words[:4]))
+
     # ---- drill: by pipeline status ----
     if verb:
         for pat, st in _STATUS_PATTERNS:
@@ -1038,6 +1070,13 @@ def detect_action(question: str, pm_names: list | None = None, last_action: dict
             elif has("vse", "все", " all ", "hammasi", "barcha tur") and p0.get("type") != "all":
                 p0["type"] = "all"
                 ch = True
+            # bare "q1" after "period 2026" → derive the year from the last filter
+            if not quarter and not month:
+                qm2 = re.search(r"\bq\s*([1-4])\b|\b([1-4])\s*-?\s*(?:кв|quarter|chorak|квартал)", ql)
+                if qm2:
+                    ym2 = re.search(r"(20\d{2})", str(p0.get("value") or ""))
+                    yy = year or (ym2.group(1) if ym2 else str(dt.datetime.now().year))
+                    quarter = f"{yy}-Q{qm2.group(1) or qm2.group(2)}"
             if month:
                 p0["period"], p0["value"], ch = "month", month, True
             elif quarter:
@@ -1256,6 +1295,9 @@ def _action_message(a: dict, lang: str = "en") -> str:
     if t == "close_popups":
         return {"en": "Closing all popups.", "ru": "Закрываю все окна.",
                 "uz": "Barcha oynalarni yopyapman."}[L]
+    if t == "back":
+        return {"en": "Going back to the dashboard.", "ru": "Возвращаюсь на дашборд.",
+                "uz": "Dashboardga qaytyapman."}[L]
     if t == "temur_mode":
         m = p.get("mode", "fast")
         return {"en": f"Switching my answer mode to {m}.",

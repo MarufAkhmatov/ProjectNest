@@ -561,8 +561,38 @@ def pm_leaderboard(issues):
     return board
 
 
+# Cyrillic → latin transliteration so a latin-typed topic ("islamiskiy")
+# still matches Russian issue summaries ("Исламский банкинг") and vice versa.
+_CYR2LAT = {
+    "а": "a", "б": "b", "в": "v", "г": "g", "д": "d", "е": "e", "ё": "e", "ж": "j",
+    "з": "z", "и": "i", "й": "y", "к": "k", "л": "l", "м": "m", "н": "n", "о": "o",
+    "п": "p", "р": "r", "с": "s", "т": "t", "у": "u", "ф": "f", "х": "h", "ц": "c",
+    "ч": "ch", "ш": "sh", "щ": "sh", "ъ": "", "ы": "i", "ь": "", "э": "e",
+    "ю": "yu", "я": "ya", "қ": "q", "ғ": "g", "ў": "o", "ҳ": "h",
+}
+
+
+def _translit(s: str) -> str:
+    return "".join(_CYR2LAT.get(ch, ch) for ch in (s or "").lower())
+
+
+def _text_match(hay: str, needle: str) -> bool:
+    """Fuzzy topic match: every needle word (3+ chars) must share a 5-char
+    prefix with some word of the haystack, after transliteration — tolerant to
+    latin/cyrillic mixing and light misspellings ("islamiskiy" ~ "исламский")."""
+    import re as _re
+    hw = _re.findall(r"[a-z0-9]+", _translit(hay))
+    for nw in _re.findall(r"[a-z0-9]+", _translit(needle)):
+        if len(nw) < 3:
+            continue
+        pref = nw[:5]
+        if not any(w.startswith(pref) or (len(w) >= 5 and nw.startswith(w[:5])) for w in hw):
+            return False
+    return True
+
+
 def filter_issues(issues, scope="all", state="all", pm=None, project=None,
-                  status=None, period=None, value=None, itype=None, limit=600):
+                  status=None, period=None, value=None, itype=None, text=None, limit=600):
     """Return the underlying issue list behind a dashboard number (drill-down)."""
     out = []
     for i in issues:
@@ -571,6 +601,9 @@ def filter_issues(issues, scope="all", state="all", pm=None, project=None,
         if scope == "tasks" and i["is_epic"]:
             continue
         if itype and i["type"] != itype:
+            continue
+        if text and not _text_match(
+                f"{i.get('summary', '')} {i['key']} {i.get('pm', '')} {(i.get('quarterly_status') or '')[:400]}", text):
             continue
         if pm and i["pm"] != pm:
             continue
