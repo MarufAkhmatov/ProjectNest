@@ -592,10 +592,14 @@ def _text_match(hay: str, needle: str) -> bool:
 
 
 def filter_issues(issues, scope="all", state="all", pm=None, project=None,
-                  status=None, period=None, value=None, itype=None, text=None, limit=600):
+                  status=None, period=None, value=None, itype=None, text=None,
+                  keys=None, limit=600):
     """Return the underlying issue list behind a dashboard number (drill-down)."""
+    kset = {k.strip().upper() for k in keys.split(",") if k.strip()} if keys else None
     out = []
     for i in issues:
+        if kset is not None and i["key"].upper() not in kset:
+            continue
         if scope == "epics" and not i["is_epic"]:
             continue
         if scope == "tasks" and i["is_epic"]:

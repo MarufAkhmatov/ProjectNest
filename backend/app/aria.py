@@ -707,11 +707,11 @@ _MONTHS = {
 }
 
 
-# Action verbs (EN/RU/UZ) that signal the user wants the UI to DO something
-# (open / show / switch...) rather than just asking an informational question.
+# Action verbs (EN/RU/UZ + latin-typed Russian) that signal the user wants the
+# UI to DO something (open / show / switch...) rather than asking a question.
 _VERB_RE = (r"ko'?rsat|курсат|chiqar|ochib|\boch\b|oching|o'?tkaz|\bo'?t\b|show|open|"
             r"go to|switch|покаж|показ|открой|откры|перейд|переключ|вывед|выведи|"
-            r"\blist\b|ro'?yxat|руйхат")
+            r"\blist\b|ro'?yxat|руйхат|otkro|otkri|pokaj|pokazh|pakaj|vived|pereyd")
 
 # Pipeline statuses for drill-by-status ("show projects in testing").
 _STATUS_PATTERNS = [
@@ -726,7 +726,8 @@ _STATUS_PATTERNS = [
 ]
 
 
-def detect_action(question: str, pm_names: list | None = None, last_action: dict | None = None):
+def detect_action(question: str, pm_names: list | None = None, last_action: dict | None = None,
+                  history: list | None = None):
     """Map a natural-language request to a dashboard UI action. Deterministic,
     multilingual (EN/RU/UZ). Returns an action dict or None. This is what lets
     Temur 'drive' the dashboard: switch pages (dashboard/calendar/risk), open
@@ -788,6 +789,24 @@ def detect_action(question: str, pm_names: list | None = None, last_action: dict
     # ---- "back" — close whatever is open and return to the dashboard ----
     if w(r"\bnazad\b|назад|\bback\b|orqaga|ortga"):
         return {"type": "back"}
+
+    # ---- "open THEM" — collect the issue keys from Temur's LAST answer and
+    # open them together in one drill popup (or the single card directly).
+    # "kakie elementi zablokirovannie? otkroy ix" → list of exactly those keys.
+    if verb and history and w(r"\bix\b|\bих\b|\bthem\b|ularni|barchasini|vse iz nih|все из них"):
+        keys: list = []
+        for h in reversed(history):
+            if h.get("role") != "user":
+                found = re.findall(r"\b([A-Za-z][A-Za-z0-9]+-\d+)\b", str(h.get("text", "")))
+                if found:
+                    keys = [k.upper() for k in dict.fromkeys(found)]
+                    break
+        if len(keys) == 1:
+            return {"type": "open_issue", "params": {"key": keys[0]}}
+        if keys:
+            label = ", ".join(keys[:3]) + ("…" if len(keys) > 3 else "")
+            return {"type": "drill", "params": {"scope": "all", "keys": ",".join(keys[:40])},
+                    "scope": "all", "label": label}
 
     # ---- Temur answer-mode (turbo / fast / smart) ----
     if has("rejim", "режим", "mode") and has("temur", "темур", "javob", "ответ", "answer",
@@ -867,10 +886,14 @@ def detect_action(question: str, pm_names: list | None = None, last_action: dict
     if has("kanban", "канбан", "доск", "taxta") or w(r"\bboard\b"):
         return {"type": "open_kanban"}
 
-    # ---- issue detail: a Jira key explicitly referenced ----
-    km = re.search(r"\b([a-z]{2,}-\d+)\b", ql)
-    if km:
-        return {"type": "open_issue", "params": {"key": km.group(1).upper()}}
+    # ---- issue detail: Jira key(s) explicitly referenced ----
+    kms = re.findall(r"\b([a-z]{2,}-\d+)\b", ql)
+    if len(kms) > 1:
+        keys = [k.upper() for k in dict.fromkeys(kms)]
+        return {"type": "drill", "params": {"scope": "all", "keys": ",".join(keys[:40])},
+                "scope": "all", "label": ", ".join(keys[:3]) + ("…" if len(keys) > 3 else "")}
+    if kms:
+        return {"type": "open_issue", "params": {"key": kms[0].upper()}}
 
     # ---- TTM: dashboard trend panel or the analysis modal ----
     if has("ttm", "time to market", "ттм", "lead time", "лид тайм", "цикл", "длительност", "davomiylik"):
@@ -927,15 +950,15 @@ def detect_action(question: str, pm_names: list | None = None, last_action: dict
     if has("metodolog", "методолог", "methodology", "uslubiyat"):
         return {"type": "risk", "params": {"methodology": True}}
     if verb:
-        if has("kritik", "critical", "критич"):
+        if has("kritik", "critical", "критич", "kritich"):
             return {"type": "risk", "params": {"cohort": "critical"}}
-        if has("xavf ostida", "at risk", "риском", "риске", "riskli"):
+        if has("xavf ostida", "at risk", "риском", "риске", "riskli", "pod riskom", "riskom"):
             return {"type": "risk", "params": {"cohort": "at_risk"}}
-        if has("kechik", "delayed", "задерж", "запозд"):
+        if has("kechik", "delayed", "задерж", "запозд", "zaderj"):
             return {"type": "risk", "params": {"cohort": "delayed"}}
-        if has("muddati o'tgan", "muddati otgan", "overdue", "просроч"):
+        if has("muddati o'tgan", "muddati otgan", "overdue", "просроч", "prosroch"):
             return {"type": "risk", "params": {"cohort": "overdue"}}
-        if has("bloklangan", "blocked", "блокир"):
+        if has("bloklangan", "blocked", "блокир", "blokirov", "blakirov", "zablokir", "zablakir"):
             return {"type": "risk", "params": {"cohort": "blocked"}}
         if has(" wip", "вип "):
             return {"type": "risk", "params": {"cohort": "wip"}}
@@ -1380,7 +1403,7 @@ def ask(question: str, payload: dict, lang: str = "en", scope: str = None, conte
     # frontend can decide whether to show the page/global scope prompt.
     _analytics = payload.get("analytics") or {}
     pm_names = [b.get("pm") for b in (_analytics.get("pm_leaderboard") or []) if b.get("pm")]
-    _early = detect_action(question, pm_names, last_action)
+    _early = detect_action(question, pm_names, last_action, history)
     if _early:
         msg = _action_message(_early, L)
         _log_interaction(question, msg)

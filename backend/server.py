@@ -582,7 +582,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(E.filter_issues(
                 data["issues"], scope=g("scope") or "all", state=g("state") or "all",
                 pm=g("pm"), project=g("project"), status=g("status"),
-                period=g("period"), value=g("value"), itype=g("type"), text=g("text")))
+                period=g("period"), value=g("value"), itype=g("type"), text=g("text"),
+                keys=g("keys")))
         # ---- admin: user management (admin role required) ----
         if route == "/api/admin/users":
             if not _is_admin(self._user()):

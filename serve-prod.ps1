@@ -20,7 +20,9 @@ if (-not $py) { $py = "python" }
 while ($true) {
   $up = Get-NetTCPConnection -LocalPort 8080 -State Listen -ErrorAction SilentlyContinue
   if (-not $up) {
+    $env:PN_PORT = "8080"
     Start-Process -FilePath $py -ArgumentList "`"$proj\backend\server.py`"" -WorkingDirectory $proj -WindowStyle Hidden
+    Start-Sleep -Seconds 5   # give it time to bind before re-checking
   }
-  Start-Sleep -Seconds 15
+  Start-Sleep -Seconds 5
 }
