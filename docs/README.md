@@ -39,7 +39,8 @@ refreshes automatically to the latest upload.
 
 ### Production stack (Docker)
 ```bash
-docker compose up        # postgres + chromadb + ollama + FastAPI backend + frontend
+docker compose up -d --build   # projectnest-backend (stdlib API) + projectnest-web (nginx + built SPA)
+# open http://localhost:8080 — or PN_WEB_PORT=8099 docker compose up -d if :8080 is taken
 ```
 
 ## Widget → metric mapping (design unchanged)
