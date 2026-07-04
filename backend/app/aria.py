@@ -726,7 +726,7 @@ _STATUS_PATTERNS = [
 ]
 
 
-def detect_action(question: str, pm_names: list | None = None):
+def detect_action(question: str, pm_names: list | None = None, last_action: dict | None = None):
     """Map a natural-language request to a dashboard UI action. Deterministic,
     multilingual (EN/RU/UZ). Returns an action dict or None. This is what lets
     Temur 'drive' the dashboard: switch pages (dashboard/calendar/risk), open
@@ -870,7 +870,7 @@ def detect_action(question: str, pm_names: list | None = None):
 
     # ---- TTM: dashboard trend panel or the analysis modal ----
     if has("ttm", "time to market", "ттм", "lead time", "лид тайм", "цикл", "длительност", "davomiylik"):
-        if has("trend", "тренд"):
+        if has("trend", "тренд", "tren ", "trent"):
             p = {}
             if w(r"\boylik|месяц|month"):
                 p["gran"] = "month"
@@ -1017,6 +1017,95 @@ def detect_action(question: str, pm_names: list | None = None):
         return _drill({"scope": "epics", "state": "completed"})
     if has("open project", "открыт", "ochiq", "в работе", "unfinished", "не заверш"):
         return _drill({"scope": "epics", "state": "open"})
+
+    # ---- contextual refinement: a short follow-up tweaks the LAST action ----
+    # "tip epic", "endi 2025", "oylik qil" right after opening TTM / a drill /
+    # the calendar should MODIFY that view instead of being treated as a fresh
+    # question. The frontend sends the previous action back as last_action.
+    # Guard: only SHORT, non-interrogative messages qualify — "2025 da nechta
+    # loyiha yopildi?" must stay a question for the LLM, not become a filter.
+    _qwords = ("necht", "qancha", "сколько", "how many", "how much", "nega ", "почему",
+               "why ", "kim ", "кто ", "who ", "nima ", "что ", "what ", "qaysi", "какой", "which")
+    if (last_action and isinstance(last_action, dict)
+            and len((question or "").split()) <= 5 and not has(*_qwords)):
+        t0 = last_action.get("type")
+        p0 = dict(last_action.get("params") or {})
+        if t0 == "open_ttm":
+            ch = False
+            if type_f != "all" and p0.get("type") != type_f:
+                p0["type"] = type_f
+                ch = True
+            elif has("vse", "все", " all ", "hammasi", "barcha tur") and p0.get("type") != "all":
+                p0["type"] = "all"
+                ch = True
+            if month:
+                p0["period"], p0["value"], ch = "month", month, True
+            elif quarter:
+                p0["period"], p0["value"], ch = "quarter", quarter, True
+            elif year:
+                p0["period"], p0["value"], ch = "year", year, True
+            if ch:
+                p0.setdefault("type", "all")
+                p0.setdefault("period", "all")
+                p0.setdefault("value", "")
+                return {"type": "open_ttm", "params": p0}
+        if t0 == "drill":
+            ch = False
+            if type_f != "all" and p0.get("type") != type_f:
+                p0["type"] = type_f
+                ch = True
+            if month:
+                p0["period"], p0["value"], ch = "month", month, True
+            elif quarter:
+                p0["period"], p0["value"], ch = "quarter", quarter, True
+            elif year:
+                p0["period"], p0["value"], ch = "year", year, True
+            if ch:
+                a = {"type": "drill", "params": p0, "scope": p0.get("scope", "epics")}
+                if p0.get("state"):
+                    a["state"] = p0["state"]
+                return a
+        if t0 == "calendar":
+            p = {}
+            if has("yaratilgan", "создан", "created"):
+                p["mode"] = "created"
+            elif has("yopilgan", "yakunlangan", "закрыт", "resolved"):
+                p["mode"] = "resolved"
+            if w(r"kunlik|по дням"):
+                p["gran"] = "day"
+            elif w(r"haftalik|hafta\b|недел|week"):
+                p["gran"] = "week"
+            elif w(r"\boy(?:lik|ni|ga|da)?\b|месяц|month"):
+                p["gran"] = "month"
+            elif w(r"yillik|год|year"):
+                p["gran"] = "year"
+            if has("bugun", "today", "сегодня"):
+                p["today"] = True
+            elif month_num:
+                p["date"] = f"{year or dt.datetime.now().year}-{month_num:02d}-{(day or 1):02d}"
+                p.setdefault("gran", "day" if day else "month")
+            elif year:
+                p["date"] = f"{year}-01-01"
+            if has("keyingi", "next ", "следующ"):
+                p["step"] = 1
+            elif has("oldingi", "previous", "предыдущ", "прошл"):
+                p["step"] = -1
+            if p:
+                return {"type": "calendar", "params": p}
+        if t0 == "pm_board":
+            p = None
+            if w(r"haftalik|hafta\b|недел|week"):
+                p = "week"
+            elif w(r"\boylik|месяц|month"):
+                p = "month"
+            elif w(r"chorak|квартал|quarter|kvartal"):
+                p = "quarter"
+            elif w(r"yillik|год|year"):
+                p = "year"
+            elif has("hammasi", "все", "all time", "barcha davr"):
+                p = "all"
+            if p:
+                return {"type": "pm_board", "params": {"period": p}}
     return None
 
 
@@ -1199,8 +1288,31 @@ _HELP_TEXT = {
 }
 
 
+def _conv_ctx(history: list | None, ui: dict | None) -> str:
+    """Conversation memory + UI awareness block for the LLM prompt."""
+    parts = []
+    if history:
+        lines = []
+        for h in history[-8:]:
+            who = "User" if (h.get("role") == "user") else "Temur"
+            txt = str(h.get("text", ""))[:220]
+            if txt:
+                lines.append(f"{who}: {txt}")
+        if lines:
+            parts.append("RECENT CONVERSATION (oldest first — use it to resolve follow-ups "
+                         "like 'and for Epic?', 'what about 2025?'):\n" + "\n".join(lines))
+    if ui:
+        view = ui.get("view") or "dashboard"
+        popup = ui.get("popup")
+        parts.append(f"USER'S CURRENT SCREEN: page={view}"
+                     + (f", open popup=\"{popup}\"" if popup else ", no popup open")
+                     + ". Take this into account when the user says 'here', 'this page', 'now'.")
+    return ("\n\n" + "\n\n".join(parts)) if parts else ""
+
+
 def ask(question: str, payload: dict, lang: str = "en", scope: str = None, context: str = None,
-        mode: str = "fast", probe: bool = False) -> dict:
+        mode: str = "fast", probe: bool = False, history: list | None = None,
+        ui: dict | None = None, last_action: dict | None = None) -> dict:
     L = lang if lang in ("en", "ru", "uz") else "en"
     # Answer mode: Turbo (instant 3B) / Flash (fast 7B) / Pro (smart 14B, slower).
     smart = mode == "smart"
@@ -1226,7 +1338,7 @@ def ask(question: str, payload: dict, lang: str = "en", scope: str = None, conte
     # frontend can decide whether to show the page/global scope prompt.
     _analytics = payload.get("analytics") or {}
     pm_names = [b.get("pm") for b in (_analytics.get("pm_leaderboard") or []) if b.get("pm")]
-    _early = detect_action(question, pm_names)
+    _early = detect_action(question, pm_names, last_action)
     if _early:
         msg = _action_message(_early, L)
         _log_interaction(question, msg)
@@ -1236,6 +1348,8 @@ def ask(question: str, payload: dict, lang: str = "en", scope: str = None, conte
         return {"answer": None, "source": "probe", "action": None,
                 "assistant": ASSISTANT_NAME, "grounded_on": None}
 
+    conv = _conv_ctx(history, ui)
+
     # PAGE scope: answer using ONLY the on-screen popup data the user is looking at.
     if scope == "page" and context:
         ctx = context[:6000]
@@ -1244,7 +1358,7 @@ def ask(question: str, payload: dict, lang: str = "en", scope: str = None, conte
             "view (a popup) and wants an answer based ONLY on the on-screen data below — do not use "
             "outside knowledge or other parts of the portfolio. Be concise (2-4 sentences), specific "
             "with the items/numbers shown. Plain text only — no Markdown, asterisks or bullets. "
-            f"Reply in {_LANG_NAME[L]} (or the language of the question).\n\n"
+            f"Reply in {_LANG_NAME[L]} (or the language of the question).{conv}\n\n"
             f"ON-SCREEN DATA (\"{(context.splitlines() or [''])[0][:80]}\"):\n{ctx}\n\n"
             f"QUESTION: {question}\n\nANSWER:"
         )
@@ -1292,7 +1406,7 @@ def ask(question: str, payload: dict, lang: str = "en", scope: str = None, conte
         "and specific with numbers. Ground every claim in the facts and retrieved records below; "
         "if something isn't there, say so instead of inventing it. "
         "Write PLAIN TEXT only — never use Markdown, asterisks, '#' or bullet characters. "
-        f"Reply in {_LANG_NAME[L]} (or the language of the question if it differs).\n\n"
+        f"Reply in {_LANG_NAME[L]} (or the language of the question if it differs).{conv}\n\n"
         f"PORTFOLIO FACTS:\n{ctx}{facts_ctx}{retrieved}\n\nQUESTION: {question}\n\nANSWER:"
     )
     answer, source = _llm(prompt, model=_model, timeout=_to)

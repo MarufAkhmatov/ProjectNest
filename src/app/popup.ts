@@ -80,6 +80,17 @@ export function setTemurMinimized(v: boolean) {
   emit();
 }
 
+/* ---- UI-state snapshot for Temur (which page / popup the user is on) ---- */
+let uiView = "dashboard";
+/** App reports the current top-level view here (dashboard / calendar / risk). */
+export function setUiView(v: string) {
+  uiView = v;
+}
+/** What Temur should know about the current screen (sent with every question). */
+export function getUiState(): { view: string; popup: string | null } {
+  return { view: uiView, popup: pageCtx?.title || (count > 0 ? "popup" : null) };
+}
+
 /** Register a modal as open while `open` is true (auto-cleans on unmount). */
 export function usePopupOpenSignal(open: boolean) {
   useEffect(() => {

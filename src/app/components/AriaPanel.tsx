@@ -3,8 +3,12 @@ import { Send, Plus, Mic, Volume2, VolumeX, Square, AudioLines, Loader2 } from "
 import { motion, AnimatePresence } from "motion/react";
 import { useI18n } from "../i18n";
 import { usePortfolio } from "../portfolio";
-import { usePopupOpen, usePageContext } from "../popup";
+import { usePopupOpen, usePageContext, getUiState } from "../popup";
 import { runDashboardAction } from "../actions";
+
+// Bump when the Temur panel changes — visible in the header so a stale cached
+// bundle is instantly recognizable.
+const TEMUR_UI_VERSION = "v2.1";
 
 const suggestionKeys = ["suggestion1", "suggestion2"];
 const VOICE_BCP: Record<string, string> = { en: "en-US", ru: "ru-RU", uz: "uz-UZ" };
@@ -237,8 +241,21 @@ export function AriaPanel() {
     window.speechSynthesis?.cancel();
   }, []);
 
+  // Conversation memory: the last executed action + recent messages travel with
+  // every question so Temur understands follow-ups ("endi Epic uchun", "va 2025?")
+  // and knows which page/popup the user is looking at.
+  const lastActionRef = useRef<any>(null);
+  const messagesRef = useRef<any[]>([]);
+  useEffect(() => { messagesRef.current = messages; }, [messages]);
+  const convCtx = () => ({
+    history: messagesRef.current.slice(-8).map((m) => ({ role: m.role, text: (m.text || "").slice(0, 300) })),
+    ui: getUiState(),
+    last_action: lastActionRef.current,
+  });
+
   const runAction = (a: any) => {
     if (!a || !a.type) return;
+    lastActionRef.current = a;
     // Answer-mode switch is AriaPanel's own state — handle it here.
     if (a.type === "temur_mode") {
       const m = a.params?.mode;
@@ -263,7 +280,7 @@ export function AriaPanel() {
   const runQuery = async (q: string, opts?: { scope?: string; context?: string }) => {
     setBusy(true);
     try {
-      const res = await ask(q, lang, { ...opts, mode });
+      const res = await ask(q, lang, { ...opts, mode, ...convCtx() });
       const ans = clean(res?.answer || t("aria_reply"));
       setMessages(prev => [...prev, { role: "assistant", text: ans }]);
       if (res?.action) runAction(res.action);
@@ -285,7 +302,7 @@ export function AriaPanel() {
     if (popupOpen && pageCtx) {
       setBusy(true);
       try {
-        const pr = await ask(q, lang, { probe: true, mode });
+        const pr = await ask(q, lang, { probe: true, mode, ...convCtx() });
         if (pr?.action || pr?.source === "action" || pr?.source === "memory" || pr?.source === "help") {
           const ans = clean(pr?.answer || "");
           if (ans) setMessages(prev => [...prev, { role: "assistant", text: ans }]);
@@ -329,7 +346,7 @@ export function AriaPanel() {
         <div style={{ position: "relative", display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
           <div>
             <div style={{ fontSize: "1.1rem", fontWeight: 700, color: "#ffffff", lineHeight: 1.1 }}>Temur</div>
-            <div style={{ fontSize: "0.72rem", color: "rgba(255,255,255,0.55)" }}>{t("aria_sub")}</div>
+            <div style={{ fontSize: "0.72rem", color: "rgba(255,255,255,0.55)" }}>{t("aria_sub")} · {TEMUR_UI_VERSION}</div>
           </div>
           {/* Turbo (instant 3B) / Flash (fast 7B) / Pro (smart 14B) answer-mode switch */}
           <div style={{ display: "flex", gap: 2, padding: 3, borderRadius: 999, background: "rgba(0,0,0,0.25)", border: "1px solid rgba(255,255,255,0.15)", flexShrink: 0, backdropFilter: "blur(8px)" }}>

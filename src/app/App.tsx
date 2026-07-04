@@ -28,7 +28,7 @@ import { CalendarView } from "./components/CalendarView";
 import { RiskDashboard } from "./components/RiskDashboard";
 import { useI18n, LANGS } from "./i18n";
 import { useBreakpoint } from "./useBreakpoint";
-import { usePopupOpen, useTemurMinimized, setTemurMinimized } from "./popup";
+import { usePopupOpen, useTemurMinimized, setTemurMinimized, setUiView } from "./popup";
 
 /* ---------- glass tokens (nav) ---------- */
 const glassPanel: React.CSSProperties = {
@@ -137,6 +137,9 @@ export default function App() {
       window.removeEventListener("pn-open-analyze", openAnalyze);
     };
   }, []);
+
+  // Report the current page to Temur's UI-state snapshot (sent with questions).
+  useEffect(() => { setUiView(view); }, [view]);
 
   // Temur dashboard-control events: page navigation, popup opening, close-all.
   useEffect(() => {

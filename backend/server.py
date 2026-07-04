@@ -378,6 +378,10 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(len(data)))
         if "/assets/" in route:
             self.send_header("Cache-Control", "public, max-age=31536000, immutable")
+        else:
+            # index.html (and other non-hashed files) must always revalidate so
+            # a rebuilt bundle reaches the browser without a manual hard-refresh.
+            self.send_header("Cache-Control", "no-cache")
         self.end_headers()
         self.wfile.write(data)
 
@@ -638,12 +642,17 @@ class Handler(BaseHTTPRequestHandler):
                 context = _b.get("context")
                 mode = _b.get("mode", "fast")
                 probe = bool(_b.get("probe"))
+                history = _b.get("history") if isinstance(_b.get("history"), list) else None
+                ui = _b.get("ui") if isinstance(_b.get("ui"), dict) else None
+                last_action = _b.get("last_action") if isinstance(_b.get("last_action"), dict) else None
             except Exception:
                 q, lang, scope, context, mode, probe = "", "en", None, None, "fast", False
+                history, ui, last_action = None, None, None
             p = _payload()
             if not p:
                 return self._send({"answer": "No portfolio dataset uploaded yet.", "source": "system"})
-            return self._send(aria.ask(q, p, lang, scope=scope, context=context, mode=mode, probe=probe))
+            return self._send(aria.ask(q, p, lang, scope=scope, context=context, mode=mode, probe=probe,
+                                       history=history, ui=ui, last_action=last_action))
 
         if route == "/api/voice":
             # Voice bridge: OpenAI Whisper (ears) -> Temur (brain) -> OpenAI TTS (voice).

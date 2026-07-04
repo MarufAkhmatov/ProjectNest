@@ -39,6 +39,15 @@ export function TtmModal({ onClose, preset }: { onClose: () => void; preset?: an
     ttm({ type, period, value }).then(setRes);
   }, [ttm, type, period, value]);
 
+  // Temur may re-issue open_ttm with NEW filters while this modal is already
+  // open ("endi Epic uchun ko'rsat") — sync the preset into the filter state.
+  useEffect(() => {
+    if (!preset) return;
+    if (preset.type) setType(preset.type);
+    if (preset.period) setPeriod(preset.period);
+    setValue(preset.value || "");
+  }, [preset]);
+
   const f = res?.filters;
   const valueOptions = useMemo(() => {
     if (!f) return [];

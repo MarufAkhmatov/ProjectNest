@@ -16,7 +16,7 @@ interface PortfolioState {
   refresh: () => void;
   upload: (file: File, mode?: "replace" | "merge") => Promise<any>;
   uploadBatch: (files: File[], mode?: "replace" | "merge", onProgress?: (done: number, total: number, current: string, lastResult?: any) => void) => Promise<{ results: any[]; summary: any }>;
-  ask: (q: string, lang?: string, opts?: { scope?: string; context?: string; mode?: string; probe?: boolean }) => Promise<any>;
+  ask: (q: string, lang?: string, opts?: { scope?: string; context?: string; mode?: string; probe?: boolean; history?: any[]; ui?: any; last_action?: any }) => Promise<any>;
   pmBoard: (period: string) => Promise<any>;
   notifications: () => Promise<any>;
   dataQuality: () => Promise<any>;
@@ -160,11 +160,14 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
     return { results, summary };
   }, [refresh]);
 
-  const ask = useCallback(async (q: string, lang: string = "en", opts?: { scope?: string; context?: string; mode?: string; probe?: boolean }) => {
+  const ask = useCallback(async (q: string, lang: string = "en", opts?: { scope?: string; context?: string; mode?: string; probe?: boolean; history?: any[]; ui?: any; last_action?: any }) => {
     try {
       const r = await fetch(`${API}/api/aria`, {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ question: q, lang, scope: opts?.scope, context: opts?.context, mode: opts?.mode, probe: opts?.probe }),
+        body: JSON.stringify({
+          question: q, lang, scope: opts?.scope, context: opts?.context, mode: opts?.mode, probe: opts?.probe,
+          history: opts?.history, ui: opts?.ui, last_action: opts?.last_action,
+        }),
       });
       return await r.json();
     } catch {
