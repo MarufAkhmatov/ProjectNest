@@ -13,7 +13,7 @@ function LeaderAvatar({ pm }: { pm: string }) {
   return <img src={url} alt={pm} style={{ width: 28, height: 28, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} />;
 }
 
-export function HealthcareProviders() {
+export function PmLeaderboard() {
   const { t } = useI18n();
   const { pmBoard } = usePortfolio();
   const [period, setPeriod] = useState("all");
@@ -26,14 +26,30 @@ export function HealthcareProviders() {
     return () => { alive = false; };
   }, [period, pmBoard]);
 
+  // Temur drives the leaderboard period ("reytingni oylik qil").
+  useEffect(() => {
+    const h = (e: Event) => {
+      const d = (e as CustomEvent).detail || {};
+      if (PERIODS.includes(d.period)) setPeriod(d.period);
+      if (d.expand) setExpanded(true);
+    };
+    const c = () => setExpanded(false);
+    window.addEventListener("pn-pm-period", h);
+    window.addEventListener("pn-close-popups", c);
+    return () => {
+      window.removeEventListener("pn-pm-period", h);
+      window.removeEventListener("pn-close-popups", c);
+    };
+  }, []);
+
   const Cols = "44px 1.9fr 0.8fr 0.8fr 0.9fr";
 
   const renderTable = (big: boolean) => (
     <div className="flex flex-col gap-3" style={{ height: "100%", minHeight: 0 }}>
       {/* Title + period filter + expand */}
       <div className="flex items-center justify-between" style={{ flexWrap: "wrap", gap: 8 }}>
-        <span style={{ fontSize: "0.9rem", fontWeight: 600, color: "var(--text)" }}>{t("healthcare_providers")}</span>
-        <div className="flex items-center gap-1" style={{ flexWrap: "wrap" }}>
+        <span style={{ fontSize: "0.9rem", fontWeight: 600, color: "var(--text)" }}>{t("pm_leaderboard")}</span>
+        <div className="flex items-center gap-1" style={{ flexWrap: "wrap", paddingRight: big ? 34 : 0 }}>
           {PERIODS.map((p) => (
             <button
               key={p}
@@ -50,7 +66,7 @@ export function HealthcareProviders() {
             </button>
           ))}
           {!big && (
-            <button onClick={() => setExpanded(true)} title="Expand"
+            <button onClick={() => setExpanded(true)} title={t("tip_expand")}
               style={{ width: 26, height: 26, borderRadius: 8, background: "var(--surface2)", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", marginLeft: 2 }}>
               <Maximize2 size={12} color="#6b7a8d" />
             </button>
@@ -120,7 +136,7 @@ export function HealthcareProviders() {
               style={{ background: "var(--card)", borderRadius: 18, boxShadow: "0 30px 80px rgba(0,0,0,0.3)", width: "min(720px, 94vw)", height: "min(80vh, 760px)", padding: 24, display: "flex", flexDirection: "column" }}
             >
               <div style={{ flex: 1, minHeight: 0, position: "relative" }}>
-                <button onClick={() => setExpanded(false)} title="Shrink"
+                <button onClick={() => setExpanded(false)} title={t("tip_shrink")}
                   style={{ position: "absolute", top: -6, right: -6, width: 30, height: 30, borderRadius: 9, background: "var(--surface2)", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1 }}>
                   <Minimize2 size={14} color="#6b7a8d" />
                 </button>

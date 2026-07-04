@@ -5,22 +5,32 @@ Canonical issue keys:
   pm (assignee), created, resolved, due, epic_key, story_points,
   links: [{type, target}], history: [{status, entered, exited, days}]
 """
+import re
 import json
+import unicodedata
 import datetime as dt
 from . import config
+
+# Jira "all fields" CSV wraps every custom field as "Пользовательское поле (X)".
+# We expose the inner name X so aliases below match it directly.
+_CUSTOM_RE = re.compile(r"^пользовательское поле\s*\((.*)\)\s*$")
 
 # ---- flexible column lookup -------------------------------------------------
 _ALIASES = {
     "key": ["issue key", "key", "issue id", "id",
-            "ключ вопроса", "ключ задачи", "ключ", "kalit", "masala kaliti"],
+            "ключ проблемы", "ключ вопроса", "ключ задачи", "ключ", "kalit", "masala kaliti"],
     "type": ["issue type", "type", "issuetype",
              "тип задачи", "тип запроса", "тип", "tur", "masala turi"],
     "status": ["status", "статус", "holat"],
     "summary": ["summary", "title", "тема", "краткое описание", "резюме", "mavzu", "qisqacha"],
+    # Full description / project description (used for epic-quality analysis).
+    "description": ["описание", "description", "tavsif", "izoh matni",
+                    "описание проекта", "project description", "описание проекта/продукта"],
     # PM is graded STRICTLY from the custom "PM" field — never the assignee.
     "pm": ["pm", "project manager", "менеджер проекта", "менеджер", "menejer", "loyiha menejeri"],
     "assignee": ["assignee", "исполнитель", "ответственный", "ijrochi", "mas'ul"],
     "reporter": ["reporter", "creator", "автор", "создатель", "muallif"],
+    # NOTE: project/scoring CSV-specific aliases handled below
     "created": ["created", "created date", "creation date",
                 "создано", "дата создания", "yaratilgan", "yaratilgan sana"],
     "resolved": ["resolved", "resolution date", "resolutiondate", "done date", "completed",
@@ -32,9 +42,10 @@ _ALIASES = {
     "project_type": ["project type", "тип проекта", "loyiha turi"],
     "regulator": ["требование регулятора", "regulator requirement", "regulator"],
     "division": ["подразделение заказчика", "customer division", "division", "bo'lim"],
-    "scoring": ["скоринг-балл", "scoring", "score"],
+    "scoring": ["скоринг-балл", "скоринг-балл ", "scoring", "score"],
     "quarterly_status": ["квартальный статус", "quarterly status"],
-    "project": ["project", "project key", "project name", "проект", "loyiha"],
+    "project": ["project", "project key", "project name",
+                "ключ проекта", "название проекта", "проект", "loyiha"],
     "epic_key": ["epic link", "parent", "parent key", "epic", "parent link",
                  "эпик", "ссылка на эпик", "родитель", "epik"],
     "story_points": ["story points", "story point estimate", "points",
@@ -46,7 +57,19 @@ _ALIASES = {
 
 
 def _get(row: dict, field: str) -> str:
-    low = {k.lower().strip(): v for k, v in row.items()}
+    # First pass: real column names (these win on any collision).
+    low: dict[str, str] = {}
+    for k, v in row.items():
+        kl = k.lower().strip()
+        if kl not in low:
+            low[kl] = v
+    # Second pass: expose inner names of "Пользовательское поле (X)" custom fields.
+    for k, v in row.items():
+        m = _CUSTOM_RE.match(k.lower().strip())
+        if m:
+            inner = m.group(1).strip()
+            if inner and inner not in low:
+                low[inner] = v
     for a in _ALIASES.get(field, [field]):
         if a in low and str(low[a]).strip():
             return str(low[a]).strip()
@@ -56,15 +79,74 @@ def _get(row: dict, field: str) -> str:
 _UNASSIGNED = {"не назначен", "не назначено", "unassigned", "none", "", "автоматический"}
 
 
+def _pretty_person(v: str) -> str:
+    """CSV person fields export only the email. Turn 'm.axmatov@bank.uz' into
+    'M. Axmatov'. Values that are already display names (no '@') pass through
+    unchanged — so an HTML merge can later override with the real full name."""
+    v = (v or "").strip()
+    if not v or "@" not in v:
+        return v
+    local = v.split("@")[0]
+    parts = [p for p in re.split(r"[._]+", local) if p]
+    if not parts:
+        return v
+    out = []
+    for p in parts:
+        out.append(p.upper() + "." if len(p) == 1 else p[:1].upper() + p[1:])
+    return " ".join(out)
+
+
+def _clean_comment(s: str) -> str:
+    """Strip Jira CSV/wiki noise from a comment body."""
+    s = s or ""
+    # trailing visibility marker: ";public" / ";internal" (+ trailing ';')
+    s = re.sub(r";\s*(public|internal|private|restricted)\s*;*\s*$", "", s, flags=re.I)
+    s = s.rstrip(";").strip()
+    s = re.sub(r"\[\^([^\]]+)\]", r"📎 \1", s)                     # attachment markup
+    s = re.sub(r"_\(\s*[\d.,]+\s*[kKmMgG]?[bB]\s*\)_", "", s)      # size annotation
+    s = re.sub(r"!([^!|]+)(?:\|[^!]*)?!", r"📎 \1", s)             # image embeds
+    s = re.sub(r"\[~[^\]]+\]", "@user", s)                          # user mentions
+    s = re.sub(r"\s+", " ", s).strip()
+    return s
+
+
 def _parse_comments(row: dict) -> list:
+    # HTML parser path: pre-built JSON list.
     raw = row.get("comments_json") or row.get("comments") or ""
-    if not raw:
+    if raw:
+        try:
+            data = json.loads(raw)
+            if isinstance(data, list):
+                return data
+        except Exception:
+            pass
+    # CSV path: one or more "Комментарий"/"Comment" columns, pipe-joined by the
+    # parser. Each Jira CSV comment is "date;author;text;visibility;..".
+    csvc = ""
+    for k, v in row.items():
+        if k.lower().strip() in ("комментарий", "comment", "comments", "izoh", "izohlar") and v:
+            csvc = v
+            break
+    if not csvc:
         return []
-    try:
-        data = json.loads(raw)
-        return data if isinstance(data, list) else []
-    except Exception:
-        return []
+    out = []
+    for piece in csvc.split("|"):
+        piece = piece.strip()
+        if not piece:
+            continue
+        parts = piece.split(";")
+        if len(parts) >= 3:
+            # body may itself contain ';' -> rejoin, then _clean_comment strips
+            # the trailing visibility marker.
+            date, author, body = parts[0].strip(), parts[1].strip(), ";".join(parts[2:])
+        elif len(parts) == 2:
+            date, author, body = parts[0].strip(), "", parts[1]
+        else:
+            date, author, body = "", "", piece
+        txt = _clean_comment(body)
+        if txt:
+            out.append({"author": _pretty_person(author), "date": date, "text": txt[:700]})
+    return out[-15:]
 
 
 def _pm(row: dict) -> str:
@@ -72,7 +154,7 @@ def _pm(row: dict) -> str:
     v = _get(row, "pm").strip()
     if v.lower() in _UNASSIGNED:
         return "Unassigned"
-    return v
+    return _pretty_person(v)
 
 
 def _get_links(row: dict) -> list[dict]:
@@ -121,20 +203,196 @@ def _iso(d):
 
 
 # ---- status normalization ---------------------------------------------------
-# Cyrillic homoglyphs -> Latin (so "Dоne"/"Tеsting"/"Аnаlysis" match EN canonicals)
-_HOMO = str.maketrans({
+# Jira lets people CREATE custom statuses, and humans routinely type them with
+# mixed Cyrillic+Latin letters (visually identical). For example:
+#   "KOPЗИHA ИДEЙ"  (K-O-P-H-E are LATIN; ЗИ-И-Д are CYRILLIC) actually means
+#   "КОРЗИНА ИДЕЙ"  ("Idea Bin" → BACKLOG).
+# We attempt BOTH directions so either kind of contamination resolves.
+_CYR_TO_LAT = str.maketrans({
     "А": "A", "В": "B", "Е": "E", "К": "K", "М": "M", "Н": "H", "О": "O",
-    "Р": "P", "С": "C", "Т": "T", "Х": "X", "а": "a", "е": "e", "о": "o",
-    "с": "c", "р": "p", "х": "x", "у": "y", "к": "k", "м": "m", "т": "t",
+    "Р": "P", "С": "C", "Т": "T", "Х": "X", "У": "Y",
+    "а": "a", "е": "e", "о": "o", "с": "c", "р": "p", "х": "x", "у": "y",
+    "к": "k", "м": "m", "т": "t",
 })
+_LAT_TO_CYR = str.maketrans({
+    "A": "А", "B": "В", "C": "С", "E": "Е", "H": "Н", "K": "К",
+    "M": "М", "O": "О", "P": "Р", "T": "Т", "X": "Х", "Y": "У",
+})
+
+_unknown_statuses: set[str] = set()
+
+# Status audit: every distinct raw value seen during the current ingest, with
+# its canonical mapping + counts + flags. Reset by reset_status_audit() before
+# each ingest, snapshotted into the dataset meta after. Lets the user verify
+# every upload that mixed-script statuses were caught + dead steps were dropped.
+# Gated by _audit_active so dashboard-render canon_status() calls don't pollute.
+_status_audit: dict[str, dict] = {}
+_dead_type_audit: dict[str, int] = {}   # raw type → count of issues dropped
+_audit_active: bool = False
+
+
+def _script_kinds(s: str) -> set[str]:
+    out: set[str] = set()
+    for ch in s:
+        n = unicodedata.name(ch, "")
+        if "CYRILLIC" in n:
+            out.add("C")
+        elif "LATIN" in n:
+            out.add("L")
+    return out
+
+
+def reset_status_audit() -> None:
+    global _audit_active
+    _status_audit.clear()
+    _dead_type_audit.clear()
+    _audit_active = True
+
+
+def stop_status_audit() -> None:
+    global _audit_active
+    _audit_active = False
+
+
+def _record_dead_type(raw: str) -> None:
+    if not _audit_active:
+        return
+    k = (raw or "").strip()
+    if not k:
+        return
+    _dead_type_audit[k] = _dead_type_audit.get(k, 0) + 1
+
+
+def get_status_audit() -> dict:
+    """Snapshot of the current ingest's status audit.
+
+    {
+      generated_at, total_distinct, total_events,
+      mixed_normalized: [{raw, canonical, count}, ...],
+      dead_dropped:     [{raw, canonical:"", count}, ...],
+      unknown:          [{raw, count}, ...],
+      dead_issue_types: [{raw, count}, ...],   # whole issues dropped (e.g. "Статус проекта")
+      by_canonical:     {CANONICAL: [{raw, count}, ...]},
+    }
+    """
+    mixed: list[dict] = []
+    dead: list[dict] = []
+    unknown: list[dict] = []
+    by_canonical: dict[str, list[dict]] = {}
+    total_events = 0
+    for rec in _status_audit.values():
+        total_events += rec["count"]
+        row = {"raw": rec["raw"], "canonical": rec["canonical"], "count": rec["count"]}
+        if rec["dead"]:
+            dead.append(row)
+        elif rec["unknown"]:
+            unknown.append({"raw": rec["raw"], "count": rec["count"]})
+        else:
+            by_canonical.setdefault(rec["canonical"], []).append({"raw": rec["raw"], "count": rec["count"]})
+            if rec["mixed_script"]:
+                mixed.append(row)
+    mixed.sort(key=lambda r: -r["count"])
+    dead.sort(key=lambda r: -r["count"])
+    unknown.sort(key=lambda r: -r["count"])
+    dead_types = sorted(
+        [{"raw": k, "count": v} for k, v in _dead_type_audit.items()],
+        key=lambda r: -r["count"],
+    )
+    return {
+        "generated_at": dt.datetime.now().isoformat(timespec="seconds"),
+        "total_distinct": len(_status_audit),
+        "total_events": total_events,
+        "mixed_normalized": mixed,
+        "dead_dropped": dead,
+        "unknown": unknown,
+        "dead_issue_types": dead_types,
+        "by_canonical": by_canonical,
+    }
+
+
+def _record_audit(raw_input: str, canonical: str, *, unknown: bool) -> None:
+    """Record one canon_status() call. Keyed by the ORIGINAL-case raw value
+    so 'Done' (133) and 'Dоne' (238, mixed) appear as separate rows in the audit."""
+    if not _audit_active:
+        return
+    raw = (raw_input or "").strip()
+    if not raw:
+        return
+    rec = _status_audit.get(raw)
+    if rec is None:
+        kinds = _script_kinds(raw)
+        rec = {
+            "raw": raw,
+            "canonical": canonical,
+            "count": 0,
+            "mixed_script": kinds == {"C", "L"},
+            "dead": canonical == "",
+            "unknown": unknown,
+        }
+        _status_audit[raw] = rec
+    rec["count"] += 1
+
+
+def _log_unknown(raw: str) -> None:
+    if not raw or raw in _unknown_statuses:
+        return
+    _unknown_statuses.add(raw)
+    try:
+        log = config.LOGS / "unknown_statuses.log"
+        with log.open("a", encoding="utf-8") as f:
+            f.write(f"{dt.datetime.now().isoformat(timespec='seconds')}\t{raw}\n")
+    except Exception:
+        pass
+
+
+def _is_canonical(s: str) -> bool:
+    return (s in config.DISCOVERY_STATUSES or s in config.DELIVERY_STATUSES
+            or s in config.DONE_STATUSES or s in config.DECLINED_STATUSES
+            or s == "NEED INFO")
 
 
 def canon_status(s: str) -> str:
-    raw = (s or "").strip().upper()
+    """Canonicalize a raw status string.
+
+    Returns "" for DEAD statuses (obsolete workflow steps that should never enter
+    TTM/lead-time math). The history parser drops these segments outright.
+    Every call is recorded into the per-ingest status audit so the user can see
+    which mixed-script forms were normalized and which dead steps were dropped.
+    """
+    raw_input = s or ""
+    raw = raw_input.strip().upper()
+    if not raw:
+        return ""
+
+    def done(canonical: str, *, unknown: bool = False) -> str:
+        _record_audit(raw_input, canonical, unknown=unknown)
+        return canonical
+
+    # Dead-status check (also catches Latin-look-alike contamination like
+    # "KOPЗИHA ИДEЙ" → "КОРЗИНА ИДЕЙ").
+    if raw in config.DEAD_STATUSES:
+        return done("")
+    cyr_form = raw.translate(_LAT_TO_CYR)
+    if cyr_form in config.DEAD_STATUSES:
+        return done("")
+    # 1) direct match (synonym or already canonical)
     if raw in config.STATUS_SYNONYMS:
-        return config.STATUS_SYNONYMS[raw]
-    norm = raw.translate(_HOMO)
-    return config.STATUS_SYNONYMS.get(norm, norm)
+        return done(config.STATUS_SYNONYMS[raw])
+    if _is_canonical(raw):
+        return done(raw)
+    # 2) Cyrillic look-alikes → Latin (e.g. "Dоne" / "Tеsting" / "In Prоgress")
+    lat = raw.translate(_CYR_TO_LAT)
+    if lat != raw:
+        if lat in config.STATUS_SYNONYMS:
+            return done(config.STATUS_SYNONYMS[lat])
+        if _is_canonical(lat):
+            return done(lat)
+    # 3) Latin look-alikes → Cyrillic (catches mixed-script RU synonyms)
+    if cyr_form != raw and cyr_form in config.STATUS_SYNONYMS:
+        return done(config.STATUS_SYNONYMS[cyr_form])
+    # 4) unknown — log once so future drift is visible, return the cleaner form
+    _log_unknown(raw)
+    return done(lat if _is_canonical(lat) else raw, unknown=True)
 
 
 _TYPE = {
@@ -195,6 +453,10 @@ def _parse_history(raw: str, created, resolved, current_status):
     events.sort(key=lambda x: x[1])
     out = []
     for i, (st, ent, ext) in enumerate(events):
+        if not st:
+            # Dead status — by user request these are not real process phases
+            # and must not enter TTM/lead-time math.
+            continue
         end = ext
         if end is None:
             end = events[i + 1][1] if i + 1 < len(events) else (resolved or dt.datetime.now())
@@ -210,8 +472,22 @@ def normalize_rows(rows: list[dict], default_project: str = "") -> list[dict]:
         key = _get(row, "key")
         if not key:
             continue
-        itype = canon_type(_get(row, "type") or "Task")
+        raw_type = _get(row, "type") or "Task"
+        itype = canon_type(raw_type)
+        # Whitelist: only Epic / Task / New Feature count. Everything else
+        # (Sub-task, Blocker, "Подпроект", "Карточка по проекту", "Статус
+        # проекта", Story, Bug, future unknowns) is dropped at ingest. Per user
+        # directive — no report (TTM, throughput, leaderboards, DQ totals)
+        # should include any other type without explicit permission.
+        if itype not in config.ALLOWED_ISSUE_TYPES:
+            _record_dead_type(raw_type)
+            continue
         status_c = canon_status(_get(row, "status") or "BACKLOG")
+        # If the issue's current status is a DEAD step (rare — usually current
+        # status is clean), fall back to BACKLOG so the issue still appears in
+        # the dashboard rather than vanishing.
+        if not status_c:
+            status_c = "BACKLOG"
         created = parse_date(_get(row, "created"))
         updated = parse_date(_get(row, "updated"))
         resolved = parse_date(_get(row, "resolved"))
@@ -245,9 +521,10 @@ def normalize_rows(rows: list[dict], default_project: str = "") -> list[dict]:
             "status": status_c,
             "status_group": status_group(status_c),
             "summary": _get(row, "summary"),
+            "description": _get(row, "description"),
             "pm": _pm(row),
-            "assignee": _get(row, "assignee"),
-            "reporter": _get(row, "reporter"),
+            "assignee": _pretty_person(_get(row, "assignee")),
+            "reporter": _pretty_person(_get(row, "reporter")),
             "created": _iso(created),
             "resolved": _iso(resolved),
             "due": _iso(due),

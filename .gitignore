@@ -38,3 +38,14 @@ ai/vector_db/*
 
 # runtime upload metadata
 storage/upload_history.json
+storage/openai.key
+
+# secrets — NEVER commit credentials
+storage/auth.json
+storage/.auth_secret
+
+# local binaries / archives / scratch (not part of the app)
+cloudflared.exe
+*.zip
+login-demo/
+default_shadcn_theme.css

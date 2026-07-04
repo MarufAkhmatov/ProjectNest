@@ -11,6 +11,7 @@ from . import config
 
 CURRENT_DATA = config.CURRENT / "dataset.json"
 CURRENT_META = config.CURRENT / "meta.json"
+STATUS_AUDIT_FILE = config.CURRENT / "status_audit.json"
 HISTORY_FILE = config.STORAGE / "upload_history.json"
 CACHE_DIR = config.TEMP / "cache"
 CACHE_DIR.mkdir(parents=True, exist_ok=True)
@@ -25,6 +26,16 @@ def parse_cache_get(h: str):
 
 def parse_cache_put(h: str, issues: list):
     (CACHE_DIR / f"{h}.json").write_text(json.dumps(issues, ensure_ascii=False), encoding="utf-8")
+
+
+def save_status_audit(audit: dict) -> None:
+    STATUS_AUDIT_FILE.write_text(json.dumps(audit, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def load_status_audit() -> dict | None:
+    if STATUS_AUDIT_FILE.exists():
+        return json.loads(STATUS_AUDIT_FILE.read_text(encoding="utf-8"))
+    return None
 
 
 def _now() -> str:

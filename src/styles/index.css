@@ -57,3 +57,7 @@
 .pn-scroll::-webkit-scrollbar-thumb:hover {
   background: linear-gradient(180deg, #246650 0%, #3aa492 100%);
 }
+@keyframes pn-spin { to { transform: rotate(360deg); } }
+.pn-spin { animation: pn-spin 0.8s linear infinite; }
+/* Project Flow spoke donut — each stick fades in at full size, staggered */
+@keyframes pn-spoke { from { opacity: 0; } to { opacity: 1; } }

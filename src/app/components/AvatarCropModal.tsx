@@ -1,6 +1,7 @@
 import { useRef, useState, useEffect, useCallback } from "react";
 import { motion } from "motion/react";
 import { Check, X, ZoomIn } from "lucide-react";
+import { useI18n } from "../i18n";
 
 const V = 300;     // viewport size
 const OUT = 256;   // output size
@@ -8,6 +9,7 @@ const OUT = 256;   // output size
 export function AvatarCropModal({
   src, title, onSave, onCancel,
 }: { src: string; title: string; onSave: (dataUrl: string) => void; onCancel: () => void }) {
+  const { t } = useI18n();
   const imgRef = useRef<HTMLImageElement | null>(null);
   const [nat, setNat] = useState({ w: 0, h: 0 });
   const [minScale, setMinScale] = useState(1);
@@ -121,9 +123,9 @@ export function AvatarCropModal({
         </div>
 
         <div className="flex items-center justify-end gap-2" style={{ marginTop: 16 }}>
-          <button onClick={onCancel} style={{ padding: "8px 16px", borderRadius: 10, background: "var(--surface2)", border: "none", cursor: "pointer", fontSize: "0.8rem", color: "var(--text)", fontFamily: "var(--font-sans)" }}>Cancel</button>
+          <button onClick={onCancel} style={{ padding: "8px 16px", borderRadius: 10, background: "var(--surface2)", border: "none", cursor: "pointer", fontSize: "0.8rem", color: "var(--text)", fontFamily: "var(--font-sans)" }}>{t("crop_cancel")}</button>
           <button onClick={save} style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 18px", borderRadius: 10, background: "linear-gradient(135deg,#2d7a5f,#4EB6A6)", border: "none", cursor: "pointer", fontSize: "0.8rem", color: "#fff", fontWeight: 600, fontFamily: "var(--font-sans)" }}>
-            <Check size={14} /> Save
+            <Check size={14} /> {t("crop_save")}
           </button>
         </div>
       </motion.div>

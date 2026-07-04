@@ -59,6 +59,123 @@ def _parse_csv(data: bytes) -> list[dict]:
     return out
 
 
+def is_history_file(path: Path) -> bool:
+    """Detect a Jira 'Export → History (Current fields)' export by its columns."""
+    try:
+        suffix = path.suffix.lower()
+        if suffix in (".xlsx", ".xlsm"):
+            from openpyxl import load_workbook
+            wb = load_workbook(path, read_only=True, data_only=True)
+            hdr = [str(c.value).strip().lower() if c.value else "" for c in next(wb.active.iter_rows(max_row=1))]
+        else:
+            text = _decode(path.read_bytes())[:8192]
+            line = text.splitlines()[0] if text else ""
+            hdr = [h.strip().strip('"').lower() for h in re.split(r"[,;\t]", line)]
+        return ("changed field" in hdr) or ("change time" in hdr) or ("изменённое поле" in hdr)
+    except Exception:
+        return False
+
+
+def _hist_rows(path: Path):
+    """Yield header + value rows from a history export (XLSX or CSV)."""
+    suffix = path.suffix.lower()
+    if suffix in (".xlsx", ".xlsm"):
+        from openpyxl import load_workbook
+        wb = load_workbook(path, read_only=True, data_only=True)
+        it = wb.active.iter_rows(values_only=True)
+        header = [str(h).strip().lower() if h is not None else "" for h in next(it)]
+        for r in it:
+            yield header, r
+    else:
+        for rec in _parse_csv(path.read_bytes()):
+            header = [k.strip().lower() for k in rec.keys()]
+            yield header, list(rec.values())
+
+
+def parse_jira_history(path: Path) -> dict:
+    """Parse a Jira History export into per-issue status-transition timelines.
+
+    Returns {issue_key: [{status, entered, exited, days}]}, status canonicalized.
+    Exact TTM (Discovery/Delivery), lead time and flow are computed from this.
+    """
+    import datetime as dt
+    from .normalize import canon_status, parse_date
+
+    def to_dt(v):
+        if isinstance(v, dt.datetime):
+            return v
+        return parse_date(str(v)) if v else None
+
+    raw, cur, header = {}, None, None
+    col = {}
+    for header, r in _hist_rows(path):
+        if not col:
+            def idx(*names):
+                for n in names:
+                    if n in header:
+                        return header.index(n)
+                return -1
+            col = {
+                "key": idx("код", "code", "issue key", "key", "ключ проблемы"),
+                "created": idx("создано", "created"),
+                "resolved": idx("дата резолюции", "resolved", "resolution date", "дата решения"),
+                "status": idx("статус", "status_current") if "status_current" in header else idx("статус", "status"),
+                "ctime": idx("change time", "время изменения"),
+                "field": idx("changed field", "изменённое поле", "измененное поле", "поле"),
+                "old": idx("old value", "старое значение"),
+                "new": idx("new value", "новое значение"),
+            }
+        g = lambda k: (r[col[k]] if col[k] >= 0 and col[k] < len(r) else None)
+        key = g("key")
+        if key:
+            cur = str(key).strip()
+            raw.setdefault(cur, {"created": g("created"), "resolved": g("resolved"), "events": []})
+        if cur is None:
+            continue
+        fld = g("field")
+        if fld and str(fld).strip().lower() == "status":
+            t = to_dt(g("ctime"))
+            new_v = g("new")
+            old_v = g("old")
+            # Skip header-leak rows: a Jira export occasionally injects the literal
+            # word "Statuses" into either the old- or new-value column (we saw 13
+            # such events silently breaking TTM). Drop them rather than treat as
+            # real statuses.
+            if (str(new_v or "").strip().lower() == "statuses"
+                    or str(old_v or "").strip().lower() == "statuses"):
+                continue
+            if t:
+                raw[cur]["events"].append((t, old_v, new_v))
+
+    out = {}
+    for key, info in raw.items():
+        evs = sorted([e for e in info["events"] if isinstance(e[0], dt.datetime)], key=lambda x: x[0])
+        if not evs:
+            continue
+        created = to_dt(info["created"]) or evs[0][0]
+        resolved = to_dt(info["resolved"])
+        segs, prev_t, prev_s = [], created, canon_status(str(evs[0][1] or ""))
+        for (t, _old, new) in evs:
+            d = max(0.0, (t - prev_t).total_seconds() / 86400.0)
+            # Drop DEAD-status segments (canon_status -> "") so they never enter
+            # TTM/lead-time math. The time spent "in" a dead step disappears from
+            # phase totals — by user request these are not real process phases.
+            if prev_s:
+                segs.append({"status": prev_s, "entered": prev_t.isoformat(),
+                             "exited": t.isoformat(), "days": round(d, 3)})
+            prev_t, prev_s = t, canon_status(str(new or ""))
+        end = resolved or evs[-1][0]
+        d = max(0.0, (end - prev_t).total_seconds() / 86400.0)
+        if not prev_s:
+            # Last segment is dead — don't emit it.
+            out[key] = segs
+            continue
+        segs.append({"status": prev_s, "entered": prev_t.isoformat(),
+                     "exited": end.isoformat(), "days": round(d, 3)})
+        out[key] = segs
+    return out
+
+
 def _parse_xlsx(data: bytes) -> list[dict]:
     from openpyxl import load_workbook
     wb = load_workbook(io.BytesIO(data), read_only=True, data_only=True)
@@ -85,6 +202,13 @@ def _parse_html(data: bytes) -> list[dict]:
     # [KEY] <a href=.../browse/KEY> and a label/value grid (often RU/UZ locale).
     if re.search(r"\[[A-Z]{2,}-\d+\]\s*(&nbsp;)?\s*<a\s+href=", text) or 'class="formtitle"' in text:
         rows = _parse_jira_printable(text)
+        if rows:
+            return rows
+    # Jira issue-navigator "Excel HTML" export: one big <table id="issuetable">
+    # with per-column <td class="issuekey|summary|status|…"> cells. Identify cells
+    # by their stable CSS class so locale-translated headers don't matter.
+    if 'id="issuetable"' in text or 'class="issuetable"' in text or "headerrow-issuekey" in text:
+        rows = _parse_jira_issuetable(text)
         if rows:
             return rows
     try:
@@ -198,6 +322,69 @@ def _parse_jira_printable(text: str) -> list[dict]:
             "comments_json": json.dumps(comments, ensure_ascii=False),
         })
     return rows
+
+
+# Jira issuetable <td class="X"> → canonical column name normalize understands.
+_IT_CLASS = {
+    "issuekey": "Issue key", "summary": "Summary", "status": "Status",
+    "issuetype": "Issue Type", "priority": "Priority", "resolution": "Resolution",
+    "assignee": "Assignee", "reporter": "Reporter", "creator": "Creator",
+    "created": "Created", "updated": "Updated", "resolutiondate": "Resolution Date",
+    "duedate": "Due Date", "description": "Description", "project": "Project",
+}
+
+
+def _parse_jira_issuetable(text: str) -> list[dict]:
+    """Parse the Jira issue-navigator Excel-HTML <table id="issuetable">.
+    Rows are keyed by canonical English column names derived from each cell's
+    CSS class (issuekey/summary/status/…), so the locale of the visible
+    headers is irrelevant and nested tables inside a cell can't shift columns."""
+    from html.parser import HTMLParser
+
+    class IT(HTMLParser):
+        def __init__(self):
+            super().__init__()
+            self.rows: list[dict] = []
+            self.cur: dict | None = None
+            self.cell = ""
+            self.cell_field: str | None = None
+            self.in_cell = False
+
+        def handle_starttag(self, tag, attrs):
+            if tag == "tr":
+                self.cur = {}
+            elif tag in ("td", "th"):
+                self.in_cell = True
+                self.cell = ""
+                cls = dict(attrs).get("class", "") or ""
+                self.cell_field = next((_IT_CLASS[t] for t in cls.split() if t in _IT_CLASS), None)
+
+        def handle_endtag(self, tag):
+            if tag in ("td", "th"):
+                if self.cur is not None and self.cell_field and self.cell_field not in self.cur:
+                    val = _htmllib.unescape(re.sub(r"\s+", " ", self.cell)).strip()
+                    self.cur[self.cell_field] = val
+                self.in_cell = False
+                self.cell_field = None
+            elif tag == "tr":
+                # keep only real issue rows (those carrying an issue key)
+                if self.cur and self.cur.get("Issue key"):
+                    self.rows.append(self.cur)
+                self.cur = None
+
+        def handle_data(self, data):
+            if self.in_cell:
+                self.cell += data
+
+    p = IT()
+    p.feed(text)
+    out = []
+    for r in p.rows:
+        # split a "Resolution Date" into the canonical "Resolved" column too
+        if r.get("Resolution Date") and "Resolved" not in r:
+            r["Resolved"] = r["Resolution Date"]
+        out.append(r)
+    return out
 
 
 def _parse_html_stdlib(text: str) -> list[dict]:

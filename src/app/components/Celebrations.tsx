@@ -1,7 +1,8 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import confetti from "canvas-confetti";
 import { usePortfolio } from "../portfolio";
+import { useI18n } from "../i18n";
 
 type Cel = { id: string; emoji: string; title: string; subtitle: string; url?: string };
 const PERIODS = ["week", "month", "quarter", "year"];
@@ -19,12 +20,44 @@ function salute() {
 
 export function Celebrations() {
   const { notifications, pmBoard, data } = usePortfolio();
+  const { t, tf } = useI18n();
   const [queue, setQueue] = useState<Cel[]>([]);
   const [current, setCurrent] = useState<Cel | null>(null);
+  const [enabled, setEnabled] = useState(() => localStorage.getItem("pn-cel-enabled") !== "0");
   const ran = useRef(false);
 
+  // On-demand batch: celebrate the current winners (recent epics + top-3 PMs)
+  // all at once — for "turn it on at the meeting and applaud everyone" mode.
+  const celebrateNow = useCallback(async () => {
+    const cels: Cel[] = [];
+    const notif = await notifications();
+    (notif.epics || []).slice(0, 3).forEach((e: any) =>
+      cels.push({ id: "now-e" + e.key, emoji: "🏆", title: tf("cel_epic_done", { key: e.key }), subtitle: e.summary || "", url: e.url }));
+    const all = await pmBoard("all");
+    (all.rows || []).slice(0, 3).forEach((r: any) =>
+      cels.push({
+        id: "now-l" + r.pm,
+        emoji: r.rank === 1 ? "🥇" : r.rank === 2 ? "🥈" : "🥉",
+        title: tf("cel_congrats", { pm: r.pm }),
+        subtitle: tf("cel_top_sub", { projects: r.projects_completed, tasks: r.tasks_completed }),
+      }));
+    setQueue(cels);
+  }, [notifications, pmBoard, tf]);
+
+  // Header toggle: turn celebrations on/off; turning ON fires the batch now.
   useEffect(() => {
-    if (ran.current || !data) return;
+    const h = (e: Event) => {
+      const on = (e as CustomEvent).detail?.enabled;
+      setEnabled(on);
+      if (on) celebrateNow();
+      else { setQueue([]); setCurrent(null); }
+    };
+    window.addEventListener("pn-cel-toggle", h);
+    return () => window.removeEventListener("pn-cel-toggle", h);
+  }, [celebrateNow]);
+
+  useEffect(() => {
+    if (ran.current || !data || !enabled) return;
     ran.current = true;
     (async () => {
       const cels: Cel[] = [];
@@ -36,7 +69,7 @@ export function Celebrations() {
       const seen = new Set(JSON.parse(localStorage.getItem("pn-seen-epics") || "[]"));
       if (!firstTime) {
         epics.filter((e) => !seen.has(e.key)).slice(0, 3).forEach((e) =>
-          cels.push({ id: "e" + e.key, emoji: "🏆", title: `Epic ${e.key} completed!`, subtitle: e.summary || "", url: e.url }));
+          cels.push({ id: "e" + e.key, emoji: "🏆", title: tf("cel_epic_done", { key: e.key }), subtitle: e.summary || "", url: e.url }));
       }
       localStorage.setItem("pn-seen-epics", JSON.stringify(epics.map((e) => e.key)));
 
@@ -51,8 +84,8 @@ export function Celebrations() {
             if (oldNames.indexOf(row.pm) !== row.rank - 1) {
               cels.push({
                 id: `l${period}${row.pm}`, emoji: "🎉",
-                title: `Congratulations ${row.pm}!`,
-                subtitle: `Took #${row.rank} place in the ${period} leaderboard`,
+                title: tf("cel_congrats", { pm: row.pm }),
+                subtitle: tf("cel_place", { rank: row.rank, period: t("per_" + period) }),
               });
             }
           });
@@ -65,15 +98,15 @@ export function Celebrations() {
         const all = await pmBoard("all");
         const top = (all.rows || [])[0];
         if (top) cels.push({
-          id: "welcome", emoji: "🎉", title: `Top performer: ${top.pm}`,
-          subtitle: `#1 with ${top.projects_completed} projects & ${top.tasks_completed} tasks`,
+          id: "welcome", emoji: "🎉", title: tf("cel_top", { pm: top.pm }),
+          subtitle: tf("cel_top_sub", { projects: top.projects_completed, tasks: top.tasks_completed }),
         });
         localStorage.setItem("pn-cel-init", "1");
       }
 
       setQueue(cels);
     })();
-  }, [data, notifications, pmBoard]);
+  }, [data, notifications, pmBoard, enabled, t, tf]);
 
   useEffect(() => {
     if (!current && queue.length) {
@@ -110,7 +143,7 @@ export function Celebrations() {
             {current.url && (
               <a href={current.url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}
                  style={{ display: "inline-block", marginTop: 12, fontSize: "0.78rem", fontWeight: 600, color: "#2d7a5f", textDecoration: "none" }}>
-                Open in Jira ↗
+                {t("cel_open_jira")}
               </a>
             )}
           </motion.div>

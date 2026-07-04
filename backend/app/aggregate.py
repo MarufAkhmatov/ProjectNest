@@ -35,6 +35,7 @@ def build(issues: list[dict]) -> dict:
         "completion_pct": kpis["completion_pct"],
         "bars": [round(100 * v / mx) if mx else 0 for v in m_vals],
         "labels": m_labels,
+        "series": E.completion_series(issues),
     }
 
     # ---- widget: Stress/Recovery line -> TTM trend ----
@@ -66,6 +67,7 @@ def build(issues: list[dict]) -> dict:
         "open": kpis["open_projects"],
         "declined": kpis["declined_projects"],
         "completion_pct": kpis["completion_pct"],
+        "by_status": E.epic_status_flow(issues),   # detailed per-status breakdown
     }
 
     # ---- widget: Best Projects -> top 3 by health (key + epic summary) ----

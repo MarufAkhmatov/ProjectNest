@@ -28,7 +28,9 @@ DECLINED_STATUSES = {"DECLINED", "REJECTED", "CANCELLED", "CANCELED", "WONT DO",
 STATUS_SYNONYMS = {
     # English
     "TO DO": "BACKLOG", "TODO": "BACKLOG", "OPEN": "BACKLOG", "NEW": "BACKLOG",
-    "NEED INFO": "BACKLOG", "WAITING FOR APPROVAL": "VALIDATION",
+    # NOTE: "NEED INFO" is kept as its own status (not folded into BACKLOG) so the
+    # Project Flow breakdown can count it separately.
+    "NEEDINFO": "NEED INFO", "WAITING FOR INFO": "NEED INFO", "WAITING FOR APPROVAL": "VALIDATION",
     "IN ANALYSIS": "ANALYSIS", "WAITING FOR ANALYSIS": "ANALYSIS",
     "WAITING FOR VALIDATION": "VALIDATION", "IN VALIDATION": "VALIDATION",
     "ARCH REVIEW": "ARCHITECTURE REVIEW", "WAITING FOR ARCHITECTURE REVIEW": "ARCHITECTURE REVIEW",
@@ -44,6 +46,33 @@ STATUS_SYNONYMS = {
     "ТЕСТИРУЕТСЯ": "TESTING", "ТЕСТИРОВАНИЕ": "TESTING",
     "АНАЛИЗ": "ANALYSIS", "ВАЛИДАЦИЯ": "VALIDATION", "ИНИЦИАЦИЯ": "INITIATION",
     "ОТМЕНЁННЫЕ": "DECLINED", "ОТМЕНЕННЫЕ": "DECLINED", "ОТКЛОНЕНО": "DECLINED", "ОТМЕНА": "DECLINED",
+    # Truncation Jira sometimes emits in its History export ("Resolv" instead of
+    # "Resolved"). Keep as DONE — this is a real completion state, not a workflow step.
+    "RESOLV": "DONE",
+}
+
+# WHITELIST. Only these issue types are counted in any report. Everything else
+# (Sub-task, Blocker, "Подпроект", "Карточка по проекту", "Статус проекта",
+# Story, Bug, future unknowns…) is dropped at ingest by normalize_rows() and
+# reported in the status-audit "dead_issue_types" bucket so the user can see
+# exactly what was excluded. Per user directive: TTM, throughput, leaderboards
+# must reflect ONLY Epic / Task / New Feature work.
+ALLOWED_ISSUE_TYPES = {"Epic", "Task", "New Feature"}
+
+# Dead / obsolete Jira statuses that exist in the workflow registry but are NOT
+# real process steps for this portfolio. The PMO export still contains daily
+# events with these values (e.g. someone clicked through "Корзина Идей" on the
+# way to "In Progress"). They WERE polluting TTM phase math. canon_status()
+# returns "" for these, and the history parser drops the segments entirely so
+# they never reach Discovery/Delivery/Total/Lead calculations.
+DEAD_STATUSES = {
+    "КОРЗИНА ИДЕЙ", "КОРЗИНА",
+    "РЕАЛИЗАЦИЯ",
+    "ПРИЁМКА", "ПРИЕМКА",
+    "МОНИТОРИНГ, ПОДДЕРЖКА, СБОР ОС",
+    "МОНИТОРИНГ, ПОДДЕРЖКА, СБОР OC",  # OC (Latin) vs ОС (Cyr) variant
+    "ОТЛОЖЕННЫЕ ПРОЕКТЫ",
+    "IN SUPPORT", "IDEA", "KANBAN BACKLOG",
 }
 
 # Resolutions that mean the work is finished (completed) vs declined.
@@ -52,7 +81,27 @@ RESOLUTION_DECLINED = {"declined", "отменённые", "отменённый
                        "wont do", "rejected", "cancelled", "canceled", "отменено", "duplicate"}
 RESOLUTION_NONE = {"нет решения", "unresolved", "", "none"}
 
-# AI / ARIA
-ARIA_PROVIDER = "ollama"        # ollama | llama | qwen | deepseek
-ARIA_MODEL = "llama3.1"
-OLLAMA_URL = "http://localhost:11434"
+# AI / ARIA — Temur runs on a LOCAL Ollama model by default (no Anthropic needed).
+# ARIA_MODEL is the custom "temur" model built from ai/Modelfile.temur; override
+# with the TEMUR_OLLAMA_MODEL env var. OLLAMA_TIMEOUT is generous because CPU
+# inference of a 7B model takes 15-40s per answer.
+import os as _os
+ARIA_PROVIDER = "ollama"
+# Three answer modes exposed in the dashboard:
+#   Turbo (instant) -> temur-turbo (Qwen2.5 3B, ~5-10s warm)
+#   Flash (fast)    -> temur       (Qwen2.5 7B, ~20s warm)
+#   Pro   (smart)   -> temur-pro   (Qwen2.5 14B, deeper, slower)
+ARIA_MODEL = _os.environ.get("TEMUR_OLLAMA_MODEL", "temur")          # default / Flash
+TEMUR_MODEL_TURBO = _os.environ.get("TEMUR_MODEL_TURBO", "temur-turbo")
+TEMUR_MODEL_FAST = _os.environ.get("TEMUR_MODEL_FAST", "temur")
+TEMUR_MODEL_SMART = _os.environ.get("TEMUR_MODEL_SMART", "temur-pro")
+OLLAMA_URL = _os.environ.get("OLLAMA_URL", "http://localhost:11434")
+OLLAMA_TIMEOUT = int(_os.environ.get("OLLAMA_TIMEOUT", "180"))
+OLLAMA_TIMEOUT_SMART = int(_os.environ.get("OLLAMA_TIMEOUT_SMART", "360"))
+# Primary answer engine for Temur:
+#   "claude-cli" -> Claude Code CLI (fast + smart, needs the host's Claude login);
+#                   Ollama stays as the offline fallback.
+#   "ollama"     -> fully local (slow on CPU); Claude only if ALLOW_ANTHROPIC.
+TEMUR_PRIMARY = _os.environ.get("TEMUR_PRIMARY", "claude-cli")
+# Allow the Anthropic/Claude-CLI fallback in "ollama" mode only if explicitly enabled.
+ALLOW_ANTHROPIC = _os.environ.get("TEMUR_ALLOW_ANTHROPIC", "0") == "1"

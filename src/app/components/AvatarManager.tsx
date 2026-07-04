@@ -12,6 +12,7 @@ function pmFallback(name: string) {
 const userFallback = "https://ui-avatars.com/api/?name=Temur&background=8a5a2b&color=fff&bold=true";
 
 function Row({ id, name, fallback, onPick }: { id: string; name: string; fallback: string; onPick: (id: string) => void }) {
+  const { t } = useI18n();
   const url = useAvatar(id, fallback);
   const has = !!getAvatar(id);
   return (
@@ -21,12 +22,12 @@ function Row({ id, name, fallback, onPick }: { id: string; name: string; fallbac
       </div>
       <span style={{ flex: 1, fontSize: "0.82rem", color: "var(--text)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{name}</span>
       {has && (
-        <button onClick={() => removeAvatar(id)} title="Reset" style={{ width: 32, height: 32, borderRadius: 8, background: "var(--surface2)", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <button onClick={() => removeAvatar(id)} title={t("av_reset")} style={{ width: 32, height: 32, borderRadius: 8, background: "var(--surface2)", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
           <Trash2 size={13} color="#e07a7a" />
         </button>
       )}
       <button onClick={() => onPick(id)} style={{ display: "flex", alignItems: "center", gap: 5, padding: "7px 12px", borderRadius: 9, background: "var(--surface2)", border: "none", cursor: "pointer", fontSize: "0.72rem", color: "var(--text)", fontFamily: "var(--font-sans)" }}>
-        <Camera size={13} /> Change
+        <Camera size={13} /> {t("av_change")}
       </button>
     </div>
   );
@@ -34,7 +35,7 @@ function Row({ id, name, fallback, onPick }: { id: string; name: string; fallbac
 
 export function AvatarManager({ onClose }: { onClose: () => void }) {
   const { pmBoard } = usePortfolio();
-  const { t } = useI18n();
+  const { t, tf } = useI18n();
   const [pms, setPms] = useState<string[]>([]);
   const [cropFor, setCropFor] = useState<string | null>(null);
   const [cropSrc, setCropSrc] = useState<string | null>(null);
@@ -69,7 +70,7 @@ export function AvatarManager({ onClose }: { onClose: () => void }) {
         <div className="flex items-center justify-between" style={{ marginBottom: 14 }}>
           <div className="flex items-center gap-2">
             <UserCog size={18} color="#2d7a5f" />
-            <span style={{ fontSize: "1rem", fontWeight: 600, color: "var(--text)" }}>Avatars</span>
+            <span style={{ fontSize: "1rem", fontWeight: 600, color: "var(--text)" }}>{t("av_title")}</span>
           </div>
           <button onClick={onClose} style={{ width: 30, height: 30, borderRadius: 9, background: "var(--surface2)", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
             <X size={15} color="#6b7a8d" />
@@ -77,10 +78,10 @@ export function AvatarManager({ onClose }: { onClose: () => void }) {
         </div>
 
         <div className="pn-scroll" style={{ flex: 1, minHeight: 0, overflowY: "auto", paddingRight: 6 }}>
-          <div style={{ fontSize: "0.68rem", color: "var(--muted)", textTransform: "uppercase", letterSpacing: 0.5, margin: "6px 0 2px" }}>You</div>
-          <Row id={USER_ID} name="Your avatar" fallback={userFallback} onPick={pick} />
+          <div style={{ fontSize: "0.68rem", color: "var(--muted)", textTransform: "uppercase", letterSpacing: 0.5, margin: "6px 0 2px" }}>{t("av_you")}</div>
+          <Row id={USER_ID} name={t("av_your_avatar")} fallback={userFallback} onPick={pick} />
 
-          <div style={{ fontSize: "0.68rem", color: "var(--muted)", textTransform: "uppercase", letterSpacing: 0.5, margin: "14px 0 2px" }}>{t("healthcare_providers")} ({pms.length})</div>
+          <div style={{ fontSize: "0.68rem", color: "var(--muted)", textTransform: "uppercase", letterSpacing: 0.5, margin: "14px 0 2px" }}>{t("pm_leaderboard")} ({pms.length})</div>
           {pms.map((pm) => (
             <Row key={pm} id={pm} name={pm} fallback={pmFallback(pm)} onPick={pick} />
           ))}
@@ -93,7 +94,7 @@ export function AvatarManager({ onClose }: { onClose: () => void }) {
         {cropSrc && cropFor && (
           <AvatarCropModal
             src={cropSrc}
-            title={cropFor === USER_ID ? "Crop your avatar" : `Crop avatar — ${cropFor}`}
+            title={cropFor === USER_ID ? t("av_crop_your") : tf("av_crop_named", { name: cropFor })}
             onCancel={() => { URL.revokeObjectURL(cropSrc); setCropSrc(null); setCropFor(null); }}
             onSave={(dataUrl) => {
               setAvatar(cropFor, dataUrl);

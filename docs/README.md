@@ -1,6 +1,6 @@
 # Portfolio Intelligence Platform
 
-Transforms the approved CareNest dashboard UI into a **Jira Portfolio Intelligence Platform**
+A **Jira Portfolio Intelligence Platform**
 for projects **PMD** & **PMO**. The frontend visual design is unchanged — only the data
 shown in each widget is now **calculated from uploaded Jira exports**.
 

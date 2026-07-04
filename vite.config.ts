@@ -33,4 +33,17 @@ export default defineConfig({
 
   // File types to support raw imports. Never add .css, .tsx, or .ts files to this.
   assetsInclude: ['**/*.svg', '**/*.csv'],
+
+  server: {
+    host: true,            // bind 0.0.0.0 so a phone on the same Wi-Fi can reach it
+    // Honor a PORT env if provided (e.g. the preview harness assigns a free
+    // port); otherwise fall back to Vite's default 5173 (persistent dev server).
+    port: process.env.PORT ? Number(process.env.PORT) : undefined,
+    allowedHosts: true,    // allow tunnel hostnames (cloudflared / ngrok / localtunnel)
+    proxy: {
+      // Frontend calls same-origin "/api/*" which Vite forwards to the Python
+      // backend — so only port 5173 needs to be exposed (LAN or tunnel).
+      '/api': { target: 'http://localhost:8077', changeOrigin: true },
+    },
+  },
 })

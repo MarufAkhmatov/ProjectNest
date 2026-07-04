@@ -98,6 +98,17 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     if (typeof localStorage !== "undefined") localStorage.setItem("pn-theme", mode);
   }, [mode]);
 
+  // Temur can switch the theme ("tungi rejimga o't" / "light mode")
+  useEffect(() => {
+    const h = (e: Event) => {
+      const m = (e as CustomEvent).detail?.mode;
+      if (m === "dark" || m === "light") setMode(m);
+      else setMode((prev) => (prev === "dark" ? "light" : "dark"));
+    };
+    window.addEventListener("pn-theme", h);
+    return () => window.removeEventListener("pn-theme", h);
+  }, []);
+
   const toggle = () => setMode((m) => (m === "dark" ? "light" : "dark"));
   return <Ctx.Provider value={{ mode, toggle, tokens }}>{children}</Ctx.Provider>;
 }

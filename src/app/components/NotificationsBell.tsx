@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { Bell, CheckCircle2 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { usePortfolio } from "../portfolio";
+import { useI18n } from "../i18n";
 import { jiraUrl } from "../jira";
 
 const glassCircle: React.CSSProperties = {
@@ -16,6 +17,7 @@ const SEEN_KEY = "pn-seen-notif";
 
 export function NotificationsBell() {
   const { notifications, data } = usePortfolio();
+  const { t } = useI18n();
   const base = data?.meta?.jira_base;
   const [open, setOpen] = useState(false);
   const [epics, setEpics] = useState<any[]>([]);
@@ -57,7 +59,7 @@ export function NotificationsBell() {
     <div ref={wrap} style={{ position: "relative" }}>
       <button
         onClick={toggle}
-        title="Recent closures"
+        title={t("tip_recent_closures")}
         style={{ width: 42, height: 42, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", position: "relative", color: "var(--header-icon)", ...glassCircle }}
       >
         <Bell size={17} />
@@ -76,11 +78,11 @@ export function NotificationsBell() {
             style={{ position: "absolute", top: 50, right: 0, width: 320, maxHeight: 420, background: "var(--card)", borderRadius: 14, boxShadow: "0 18px 50px rgba(0,0,0,0.25)", border: "1px solid var(--divider)", zIndex: 120, overflow: "hidden", display: "flex", flexDirection: "column" }}
           >
             <div style={{ padding: "12px 16px", borderBottom: "1px solid var(--divider)", fontSize: "0.82rem", fontWeight: 600, color: "var(--text)" }}>
-              Recently closed
+              {t("nb_recently_closed")}
             </div>
             <div className="pn-scroll" style={{ overflowY: "auto", padding: "6px 6px" }}>
               {all.length === 0 && (
-                <div style={{ padding: 16, fontSize: "0.78rem", color: "var(--muted)" }}>No recent closures.</div>
+                <div style={{ padding: 16, fontSize: "0.78rem", color: "var(--muted)" }}>{t("nb_none")}</div>
               )}
               {all.map((x) => (
                 <div key={x.key} className="flex items-start gap-2" style={{ padding: "9px 10px", borderRadius: 9 }}>
