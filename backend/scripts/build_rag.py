@@ -8,7 +8,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # backend/ on path
 
-from app import storage, aria, rag  # noqa: E402
+from app import storage, aria, rag, docs  # noqa: E402
 
 
 def main() -> int:
@@ -20,7 +20,10 @@ def main() -> int:
         print("No active dataset — upload data first.")
         return 1
     issues = data["issues"]
-    print(f"Embedding {len(issues)} issues + knowledge base ...")
+    ds = docs.status()
+    print(f"Documents in {ds['dirs']}: {ds['files']} files, {ds['extracted']} extracted "
+          f"(tesseract OCR: {'yes' if ds['tesseract'] else 'NO'}).")
+    print(f"Embedding {len(issues)} issues + knowledge base + docs ...")
 
     def prog(n, total):
         print(f"  {n}/{total}", end="\r", flush=True)

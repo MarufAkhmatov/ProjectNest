@@ -425,18 +425,34 @@ def recommend_issue(issue: dict) -> dict:
         "No owner (владелец) is set — the FIRST recommendation must be to assign an accountable "
         "owner, since without one the item cannot be driven to completion. ")
 
+    # Pull the bank's regulations relevant to THIS item so the advice checks
+    # compliance and follows the mandated process (committee, scoring, stages…).
+    reg = ""
+    try:
+        from app import rag
+        rb = rag.context_block(
+            f"{issue.get('type','')} {issue.get('summary','')} "
+            "порядок управления проектами проектный комитет владелец этапы паспорт продукта", k=5)
+        if rb:
+            reg = "\n\nBANK REGULATIONS (official documents — the process the item MUST follow):\n" + rb
+    except Exception:
+        pass
+
     prompt = (
         f"You are {ASSISTANT_NAME}, a senior PMO delivery advisor. The Jira issue below "
-        "is still OPEN. Using the facts, the quarterly status and the latest comments, "
-        "give 3-5 SPECIFIC, actionable recommendations to move it to successful completion. "
+        "is still OPEN. Using the facts, the quarterly status, the latest comments and the "
+        "BANK REGULATIONS below, give 3-5 SPECIFIC, actionable recommendations to move it to "
+        "successful completion THE WAY THE REGULATIONS REQUIRE. "
         f"{owner_rule}"
-        "Cover: the immediate next step for its current stage, how to clear "
-        "blockers/dependencies, the main risk to watch, and WHO should act (name the owner). "
-        "Answer in the same language as the source. Output 3-5 plain-text bullet lines, each "
-        "starting with '- ' (a hyphen and a space) — NO Markdown, no headings, no '#', "
-        "no '*', no bold. No preamble and do not restate the raw data.\n\n"
-        f"ISSUE FACTS:\n{factstr}\n\nQUARTERLY STATUS:\n{qs[:3000]}\n\n"
-        f"LATEST COMMENTS:\n{ctext[:3000]}\n\nRECOMMENDATIONS:"
+        "Check the item against the regulations: is it following the mandated process (project "
+        "committee, scoring, required stages/artifacts, approvals)? If a required step is missing "
+        "or done out of order, say so and give the compliant next step, citing the document by "
+        "name. Cover: the immediate next step for its stage, clearing blockers, the main risk, and "
+        "WHO should act (the owner). Answer in the same language as the source. Output 3-5 "
+        "plain-text bullet lines, each starting with '- ' — NO Markdown, no '#', no '*'. "
+        "No preamble, do not restate the raw data.\n\n"
+        f"ISSUE FACTS:\n{factstr}\n\nQUARTERLY STATUS:\n{qs[:2500]}\n\n"
+        f"LATEST COMMENTS:\n{ctext[:2000]}{reg}\n\nRECOMMENDATIONS:"
     )
     out, source = _llm(prompt, cache=True)
     if not out:
@@ -1044,8 +1060,17 @@ def detect_action(question: str, pm_names: list | None = None, last_action: dict
 
     # ---- drill: free-text topic search ("Islamic bo'yicha vazifalar",
     # "kakie zadachi po islamskomu bankingu") — fuzzy, translit-tolerant ----
-    if has("vazifa", "task", "zadach", "задач", "loyiha", "proekt", "проект",
-           "project", "epik", "epic", "issue"):
+    # HOW/WHY/WHAT-ORDER questions are informational (about process/regulations)
+    # and must go to the LLM (grounded on the docs), not open a list.
+    _is_question = bool(re.search(
+        r"\bkak\b|\bqanday\b|qanaqa|\bкак\b|\bпочему\b|\bзачем\b|\bnega\b|"
+        r"на\s+как|какой\s+порядок|qanday\s+tartib|tartibi\s+qanday|"
+        r"\bчто\s+говорит|\bnima\s+deyil|расскажи|объясни|tushuntir|izohla|"
+        r"должен|должн|kerak\b|to'?g'?ri\s+yo'?l|соответству|muvofiq|\bzid\b|"
+        r"\bwhy\b|\bhow\b|should\b|according", ql))
+    if not _is_question and has(
+            "vazifa", "task", "zadach", "задач", "loyiha", "proekt", "проект",
+            "project", "epik", "epic", "issue"):
         topic = None
         m1 = re.search(r"([\w'’\-]{4,30}(?:\s+[\w'’\-]{3,20})?)\s+(?:bo'?yicha|buyicha|haqida\w*|tegishli)", ql)
         m2 = re.search(r"(?:\bpo\b|\bпо\b|\babout\b|\bпро\b)\s+([\w'’\-]{3,30}(?:\s+[\w'’\-]{3,20})?)", ql)
@@ -1461,18 +1486,29 @@ def ask(question: str, payload: dict, lang: str = "en", scope: str = None, conte
                                "the REAL state):\n" + "\n".join(l for l in lines if l)
                                + (f"\nQUARTERLY STATUS:\n{qs[:1500]}" if qs else "")
                                + (f"\nLATEST COMMENTS:\n{ctext[:1500]}" if ctext else ""))
+        # Regulations relevant to the open item, for compliance-checked advice.
+        reg = ""
+        try:
+            from app import rag
+            rb = rag.context_block((context[:200] +
+                  " порядок управления проектами проектный комитет владелец этапы"), k=4)
+            if rb:
+                reg = "\n\nBANK REGULATIONS (official documents the item must comply with):\n" + rb
+        except Exception:
+            pass
         prompt = (
             f"You are {ASSISTANT_NAME}, a sharp PMO analyst. The user is looking at a specific view "
-            "(a popup). Answer from the on-screen data and the full issue record below — do not use "
-            "other parts of the portfolio. Think like an analyst: first assess the item's real state "
-            "(stage, age, deadline, blockers, latest progress), then answer the question directly; "
-            "if the user asks about quality, health or advice, ALSO give 2-4 concrete, actionable "
-            "recommendations grounded in that state, and assign each action to the OWNER (владелец) "
-            "by name — that person is accountable for the item (if no owner is set, say assigning one "
-            "is the first step). If something truly isn't in the data, say so. "
-            "Be concise. Plain text only — no Markdown, asterisks or bullets. "
+            "(a popup). Answer from the on-screen data, the full issue record and the BANK "
+            "REGULATIONS below — do not use other parts of the portfolio. Think like an analyst: "
+            "first assess the item's real state (stage, age, deadline, blockers, latest progress) "
+            "and whether it COMPLIES with the regulations (mandated process, committee, scoring, "
+            "required stages/approvals), then answer the question directly; if the user asks about "
+            "quality, health or advice, ALSO give 2-4 concrete recommendations that follow the "
+            "regulations (cite the document by name) and assign each action to the OWNER (владелец) "
+            "by name — that person is accountable (if no owner is set, say assigning one is step 1). "
+            "If something truly isn't in the data, say so. Be concise. Plain text only — no Markdown. "
             f"Reply in {_LANG_NAME[L]} (or the language of the question).{conv}\n\n"
-            f"ON-SCREEN DATA (\"{(context.splitlines() or [''])[0][:80]}\"):\n{ctx}{issue_facts}\n\n"
+            f"ON-SCREEN DATA (\"{(context.splitlines() or [''])[0][:80]}\"):\n{ctx}{issue_facts}{reg}\n\n"
             f"QUESTION: {question}\n\nANSWER:"
         )
         answer, source = _llm(prompt, model=_model, timeout=_to)
@@ -1518,6 +1554,10 @@ def ask(question: str, payload: dict, lang: str = "en", scope: str = None, conte
         "portfolio. Reply like a helpful human colleague: natural, warm, concise (2-4 sentences), "
         "and specific with numbers. Ground every claim in the facts and retrieved records below; "
         "if something isn't there, say so instead of inventing it. "
+        "Retrieved records tagged [DOC] are the bank's official documents (structure, the Project "
+        "and Committee / PMO-department regulations, new-product specs) — when the question touches "
+        "process, roles, approvals or how an epic/new feature must be handled, base your answer on "
+        "those [DOC] passages and refer to the document by name. "
         "Write PLAIN TEXT only — never use Markdown, asterisks, '#' or bullet characters. "
         f"Reply in {_LANG_NAME[L]} (or the language of the question if it differs).{conv}\n\n"
         f"PORTFOLIO FACTS:\n{ctx}{facts_ctx}{retrieved}\n\nQUESTION: {question}\n\nANSWER:"

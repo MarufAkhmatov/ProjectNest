@@ -12,6 +12,7 @@ import json
 import math
 import re
 import time
+import hashlib
 import urllib.request
 from pathlib import Path
 
@@ -72,20 +73,37 @@ def _issue_doc(i: dict) -> str:
 
 
 def _kb_docs() -> list[dict]:
-    """Chunk every text file under knowledge_base/ into ~800-char passages."""
+    """Chunk every knowledge-base source into ~800-char passages.
+
+    Two sources:
+      1. knowledge_base/  — plain .md/.txt methodology notes (fast).
+      2. knowladgebasefromdocs/ — the user's real documents (PDF/DOCX/scans/
+         images/xlsx). Extracted (with OCR when needed) + cached by docs.py.
+    """
     docs = []
-    if not KB_DIR.exists():
-        return docs
-    for f in KB_DIR.rglob("*"):
-        if f.suffix.lower() not in (".md", ".txt") or not f.is_file():
-            continue
-        try:
-            raw = f.read_text("utf-8", errors="ignore")
-        except Exception:
-            continue
-        for n, chunk in enumerate(_chunk(raw, 800)):
-            docs.append({"id": f"kb:{f.stem}:{n}", "kind": "kb",
-                         "source": f.name, "text": chunk})
+    # 1) plain-text knowledge base
+    if KB_DIR.exists():
+        for f in KB_DIR.rglob("*"):
+            if f.suffix.lower() not in (".md", ".txt") or not f.is_file():
+                continue
+            try:
+                raw = f.read_text("utf-8", errors="ignore")
+            except Exception:
+                continue
+            for n, chunk in enumerate(_chunk(raw, 800)):
+                docs.append({"id": f"kb:{f.stem}:{n}", "kind": "kb",
+                             "source": f.name, "text": chunk})
+    # 2) the user's documents (OCR + extraction handled by docs.py)
+    try:
+        from . import docs as _docsmod
+        for d in _docsmod.scan_docs():
+            stem = Path(d["source"]).stem
+            for n, chunk in enumerate(_chunk(d["text"], 800)):
+                docs.append({"id": f"doc:{stem}:{n}", "kind": "doc",
+                             "source": d["source"],
+                             "text": f"[{d['source']}] {chunk}"})
+    except Exception:
+        pass
     return docs
 
 
@@ -104,8 +122,17 @@ def _chunk(text: str, size: int) -> list[str]:
 # --------------------------------------------------------------------------- #
 #  build / load
 # --------------------------------------------------------------------------- #
+def _text_hash(s: str) -> str:
+    return hashlib.sha1((s or "").encode("utf-8")).hexdigest()
+
+
 def build_index(issues: list[dict], on_progress=None) -> dict:
-    """(Re)embed the whole corpus and persist it. Returns a small summary."""
+    """(Re)build the corpus index INCREMENTALLY.
+
+    An item is embedded only if it is NEW or its text CHANGED since the last
+    build — unchanged issues/docs reuse their existing vector. So adding a few
+    documents costs a few embeddings, not a full re-embed of all ~850 issues.
+    """
     global _MEM
     corpus = [{"id": i.get("key"), "kind": "issue", "text": _issue_doc(i),
                "meta": {"key": i.get("key"), "status": i.get("status"),
@@ -113,9 +140,21 @@ def build_index(issues: list[dict], on_progress=None) -> dict:
               for i in issues if i.get("key")]
     corpus += _kb_docs()
 
-    records, total = [], len(corpus)
+    # Reuse map from the existing index: (id, text-hash) -> vector.
+    prev = _load() or {}
+    reuse: dict[tuple, list] = {}
+    for r in prev.get("records", []):
+        if r.get("vec"):
+            reuse[(r.get("id"), _text_hash(r.get("text", "")))] = r["vec"]
+
+    records, total, embedded = [], len(corpus), 0
     for n, d in enumerate(corpus):
-        v = embed(d["text"])
+        key = (d["id"], _text_hash(d["text"]))
+        v = reuse.get(key)
+        if v is None:
+            v = embed(d["text"])
+            if v:
+                embedded += 1
         if v:
             records.append({**d, "vec": v})
         if on_progress and n % 25 == 0:
@@ -127,7 +166,47 @@ def build_index(issues: list[dict], on_progress=None) -> dict:
     tmp.write_text(json.dumps(idx, ensure_ascii=False), "utf-8")
     tmp.replace(INDEX_FILE)                     # atomic
     _MEM = idx
-    return {"count": len(records), "of": total, "built_at": idx["built_at"]}
+    return {"count": len(records), "of": total, "embedded": embedded,
+            "reused": len(records) - embedded, "built_at": idx["built_at"]}
+
+
+def build_docs_only(on_progress=None) -> dict:
+    """Embed ONLY the knowledge base + documents and merge them into the index,
+    leaving existing issue vectors untouched. Fast (~doc-chunk count), so the
+    user's documents become searchable immediately without waiting for the full
+    ~850-issue re-embed."""
+    global _MEM
+    prev = _load() or {}
+    prev_records = prev.get("records", [])
+    # keep everything that is NOT a kb/doc chunk (i.e. issue vectors)
+    kept = [r for r in prev_records if r.get("kind") not in ("kb", "doc")]
+    reuse = {(r.get("id"), _text_hash(r.get("text", ""))): r["vec"]
+             for r in prev_records if r.get("kind") in ("kb", "doc") and r.get("vec")}
+
+    doc_corpus = _kb_docs()
+    new_docs, embedded, total = [], 0, len(doc_corpus)
+    for n, d in enumerate(doc_corpus):
+        key = (d["id"], _text_hash(d["text"]))
+        v = reuse.get(key)
+        if v is None:
+            v = embed(d["text"])
+            if v:
+                embedded += 1
+        if v:
+            new_docs.append({**d, "vec": v})
+        if on_progress and n % 10 == 0:
+            on_progress(n, total)
+
+    records = kept + new_docs
+    idx = {"model": EMBED_MODEL, "built_at": time.strftime("%Y-%m-%dT%H:%M:%S"),
+           "count": len(records), "records": records}
+    INDEX_FILE.parent.mkdir(parents=True, exist_ok=True)
+    tmp = INDEX_FILE.with_suffix(".tmp")
+    tmp.write_text(json.dumps(idx, ensure_ascii=False), "utf-8")
+    tmp.replace(INDEX_FILE)
+    _MEM = idx
+    return {"count": len(records), "doc_chunks": len(new_docs), "embedded": embedded,
+            "issues_kept": len(kept), "built_at": idx["built_at"]}
 
 
 def _load() -> dict | None:
@@ -173,6 +252,7 @@ def context_block(query: str, k: int = 6) -> str:
         return ""
     lines = ["Most relevant records for this question (retrieved from the live data):"]
     for h in hits:
-        tag = "DOC" if h["kind"] == "kb" else "ISSUE"
+        kind = h.get("kind")
+        tag = "DOC" if kind == "doc" else "KB" if kind == "kb" else "ISSUE"
         lines.append(f"- [{tag}] {h['text']}")
     return "\n".join(lines)

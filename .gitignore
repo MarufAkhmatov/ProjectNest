@@ -49,3 +49,10 @@ cloudflared.exe
 *.zip
 login-demo/
 default_shadcn_theme.css
+
+# knowledge-base source documents — CONFIDENTIAL bank docs, keep local only
+# (only the folder's README + .gitkeep are tracked; real documents never leave the machine)
+knowladgebasefromdocs/*
+!knowladgebasefromdocs/.gitkeep
+!knowladgebasefromdocs/README.md
+storage/temp/docs_cache/

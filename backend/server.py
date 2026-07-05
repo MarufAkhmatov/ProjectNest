@@ -607,11 +607,17 @@ class Handler(BaseHTTPRequestHandler):
                 rag_ready = rag.ready()
             except Exception:
                 rag_ready = False
+            try:
+                from app import docs as _docsmod
+                docs_status = _docsmod.status()
+            except Exception as e:
+                docs_status = {"error": str(e)}
             return self._send({
                 "engine": "ollama-local", "model": config.ARIA_MODEL,
                 "ollama_up": aria.ollama_up(), "rag_ready": rag_ready,
                 "rag_building": _rag_state["building"], "rag_last": _rag_state["last"],
                 "anthropic_allowed": config.ALLOW_ANTHROPIC,
+                "docs": docs_status,
             })
         if route == "/api/voice/status":
             from app import voice
