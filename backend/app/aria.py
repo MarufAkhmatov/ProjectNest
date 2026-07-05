@@ -1415,16 +1415,48 @@ def ask(question: str, payload: dict, lang: str = "en", scope: str = None, conte
 
     conv = _conv_ctx(history, ui)
 
-    # PAGE scope: answer using ONLY the on-screen popup data the user is looking at.
+    # PAGE scope: answer about the popup the user is looking at. If the popup is
+    # an ISSUE card, pull the FULL issue record (status, age, overdue, blockers,
+    # quarterly report, comments) so Temur ASSESSES the item like an analyst and
+    # can give concrete recommendations — not just read the visible fields.
     if scope == "page" and context:
         ctx = context[:6000]
+        issue_facts = ""
+        km = re.search(r"\b([A-Za-z][A-Za-z0-9]+-\d+)\b", context[:300])
+        if km:
+            try:
+                from . import storage as _storage
+                _data = _storage.load_current()
+                iss = next((i for i in (_data or {}).get("issues", [])
+                            if i["key"].upper() == km.group(1).upper()), None)
+            except Exception:
+                iss = None
+            if iss:
+                status, group, age, overdue_days, blockers, comments = _issue_facts(iss)
+                qs = (iss.get("quarterly_status") or "").strip()
+                ctext = "\n".join(f"[{c.get('date', '')}] {c.get('author', '')}: {c.get('text', '')}"
+                                  for c in (comments or [])[-5:]).strip()
+                lines = [f"Key: {iss.get('key')} — {iss.get('summary', '')}",
+                         f"Status: {status} (stage: {group or 'unknown'})",
+                         f"Age since created: {age} days" if age is not None else "",
+                         f"OVERDUE by {overdue_days} days" if overdue_days else "",
+                         ("Blocking dependencies: " + ", ".join(b.get("target", "?") for b in blockers))
+                         if blockers else "No linked blockers recorded",
+                         f"Comments on record: {len(comments or [])}"]
+                issue_facts = ("\n\nFULL ISSUE RECORD (beyond the visible fields — use it to assess "
+                               "the REAL state):\n" + "\n".join(l for l in lines if l)
+                               + (f"\nQUARTERLY STATUS:\n{qs[:1500]}" if qs else "")
+                               + (f"\nLATEST COMMENTS:\n{ctext[:1500]}" if ctext else ""))
         prompt = (
-            f"You are {ASSISTANT_NAME}, a sharp portfolio analyst. The user is looking at a specific "
-            "view (a popup) and wants an answer based ONLY on the on-screen data below — do not use "
-            "outside knowledge or other parts of the portfolio. Be concise (2-4 sentences), specific "
-            "with the items/numbers shown. Plain text only — no Markdown, asterisks or bullets. "
+            f"You are {ASSISTANT_NAME}, a sharp PMO analyst. The user is looking at a specific view "
+            "(a popup). Answer from the on-screen data and the full issue record below — do not use "
+            "other parts of the portfolio. Think like an analyst: first assess the item's real state "
+            "(stage, age, deadline, blockers, latest progress), then answer the question directly; "
+            "if the user asks about quality, health or advice, ALSO give 2-4 concrete, actionable "
+            "recommendations grounded in that state. If something truly isn't in the data, say so. "
+            "Be concise. Plain text only — no Markdown, asterisks or bullets. "
             f"Reply in {_LANG_NAME[L]} (or the language of the question).{conv}\n\n"
-            f"ON-SCREEN DATA (\"{(context.splitlines() or [''])[0][:80]}\"):\n{ctx}\n\n"
+            f"ON-SCREEN DATA (\"{(context.splitlines() or [''])[0][:80]}\"):\n{ctx}{issue_facts}\n\n"
             f"QUESTION: {question}\n\nANSWER:"
         )
         answer, source = _llm(prompt, model=_model, timeout=_to)
