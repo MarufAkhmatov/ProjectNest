@@ -398,11 +398,14 @@ def recommend_issue(issue: dict) -> dict:
     ctext = "\n".join(f"[{c.get('date', '')}] {c.get('author', '')}: {c.get('text', '')}"
                       for c in comments[-8:]).strip()
 
+    owner = (issue.get("owner") or "").strip()
     facts = [
         f"Key: {issue.get('key')}",
         f"Summary: {issue.get('summary', '')}",
         f"Type: {issue.get('type')}",
         f"Current status: {status} (stage: {group or 'unknown'})",
+        f"OWNER (владелец — the business owner/initiator ACCOUNTABLE for this item): "
+        f"{owner or 'not set'}",
         f"PM: {issue.get('pm')}; Assignee: {issue.get('assignee') or 'unassigned'}",
         f"Priority: {issue.get('priority') or 'n/a'}",
         f"Age since created: {age if age is not None else 'unknown'} days",
@@ -415,13 +418,21 @@ def recommend_issue(issue: dict) -> dict:
     facts.append(f"Comments on record: {len(comments)}")
     factstr = "\n".join(facts)
 
+    owner_rule = (
+        f"The OWNER of this item is {owner}. This person is accountable and must drive the work — "
+        f"address the action items to {owner} by name (e.g. \"{owner} should…\"). "
+        if owner else
+        "No owner (владелец) is set — the FIRST recommendation must be to assign an accountable "
+        "owner, since without one the item cannot be driven to completion. ")
+
     prompt = (
         f"You are {ASSISTANT_NAME}, a senior PMO delivery advisor. The Jira issue below "
         "is still OPEN. Using the facts, the quarterly status and the latest comments, "
-        "give the PM 3-5 SPECIFIC, actionable recommendations to move it to successful "
-        "completion. Cover: the immediate next step for its current stage, how to clear "
-        "blockers/dependencies, the main risk to watch, and who should act. Answer in "
-        "the same language as the source. Output 3-5 plain-text bullet lines, each "
+        "give 3-5 SPECIFIC, actionable recommendations to move it to successful completion. "
+        f"{owner_rule}"
+        "Cover: the immediate next step for its current stage, how to clear "
+        "blockers/dependencies, the main risk to watch, and WHO should act (name the owner). "
+        "Answer in the same language as the source. Output 3-5 plain-text bullet lines, each "
         "starting with '- ' (a hyphen and a space) — NO Markdown, no headings, no '#', "
         "no '*', no bold. No preamble and do not restate the raw data.\n\n"
         f"ISSUE FACTS:\n{factstr}\n\nQUARTERLY STATUS:\n{qs[:3000]}\n\n"
@@ -1436,8 +1447,11 @@ def ask(question: str, payload: dict, lang: str = "en", scope: str = None, conte
                 qs = (iss.get("quarterly_status") or "").strip()
                 ctext = "\n".join(f"[{c.get('date', '')}] {c.get('author', '')}: {c.get('text', '')}"
                                   for c in (comments or [])[-5:]).strip()
+                _own = (iss.get("owner") or "").strip()
                 lines = [f"Key: {iss.get('key')} — {iss.get('summary', '')}",
                          f"Status: {status} (stage: {group or 'unknown'})",
+                         f"OWNER (владелец — accountable business owner): {_own or 'not set'}",
+                         f"PM: {iss.get('pm') or 'n/a'}",
                          f"Age since created: {age} days" if age is not None else "",
                          f"OVERDUE by {overdue_days} days" if overdue_days else "",
                          ("Blocking dependencies: " + ", ".join(b.get("target", "?") for b in blockers))
@@ -1453,7 +1467,9 @@ def ask(question: str, payload: dict, lang: str = "en", scope: str = None, conte
             "other parts of the portfolio. Think like an analyst: first assess the item's real state "
             "(stage, age, deadline, blockers, latest progress), then answer the question directly; "
             "if the user asks about quality, health or advice, ALSO give 2-4 concrete, actionable "
-            "recommendations grounded in that state. If something truly isn't in the data, say so. "
+            "recommendations grounded in that state, and assign each action to the OWNER (владелец) "
+            "by name — that person is accountable for the item (if no owner is set, say assigning one "
+            "is the first step). If something truly isn't in the data, say so. "
             "Be concise. Plain text only — no Markdown, asterisks or bullets. "
             f"Reply in {_LANG_NAME[L]} (or the language of the question).{conv}\n\n"
             f"ON-SCREEN DATA (\"{(context.splitlines() or [''])[0][:80]}\"):\n{ctx}{issue_facts}\n\n"

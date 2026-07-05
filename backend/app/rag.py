@@ -61,7 +61,7 @@ def _issue_doc(i: dict) -> str:
     parts = [
         f"{i.get('key','')} [{i.get('project','')}] {i.get('summary','')}",
         f"type={i.get('type','')} status={i.get('status','')}",
-        f"PM={i.get('pm','')} assignee={i.get('assignee','')}",
+        f"owner={i.get('owner','')} PM={i.get('pm','')} assignee={i.get('assignee','')}",
     ]
     for f in ("division", "project_type", "scoring", "quarterly_status"):
         if i.get(f):

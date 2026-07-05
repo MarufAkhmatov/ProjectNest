@@ -319,6 +319,9 @@ def _parse_jira_printable(text: str) -> list[dict]:
             "Подразделение заказчика": fields.get("Подразделение заказчика") or "",
             "Скоринг-балл": fields.get("Скоринг-балл") or "",
             "Квартальный статус": fields.get("Квартальный статус") or "",
+            # Owner (владелец / ФИО владельца) — business owner accountable for the item.
+            "ФИО владельца": (fields.get("ФИО владельца") or fields.get("Владелец")
+                              or fields.get("Owner") or ""),
             "comments_json": json.dumps(comments, ensure_ascii=False),
         })
     return rows

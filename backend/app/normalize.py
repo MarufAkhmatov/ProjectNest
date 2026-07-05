@@ -30,6 +30,11 @@ _ALIASES = {
     "pm": ["pm", "project manager", "менеджер проекта", "менеджер", "menejer", "loyiha menejeri"],
     "assignee": ["assignee", "исполнитель", "ответственный", "ijrochi", "mas'ul"],
     "reporter": ["reporter", "creator", "автор", "создатель", "muallif"],
+    # Owner (владелец) — the business owner / initiator accountable for the epic
+    # or new feature. This is who action items must be assigned to. Prefer the
+    # full-name field, fall back to the plain "владелец".
+    "owner": ["фио владельца", "владелец", "owner", "product owner", "business owner",
+              "эгаси", "owner name", "ф.и.о. владельца"],
     # NOTE: project/scoring CSV-specific aliases handled below
     "created": ["created", "created date", "creation date",
                 "создано", "дата создания", "yaratilgan", "yaratilgan sana"],
@@ -525,6 +530,7 @@ def normalize_rows(rows: list[dict], default_project: str = "") -> list[dict]:
             "pm": _pm(row),
             "assignee": _pretty_person(_get(row, "assignee")),
             "reporter": _pretty_person(_get(row, "reporter")),
+            "owner": _pretty_person(_get(row, "owner")),
             "created": _iso(created),
             "resolved": _iso(resolved),
             "due": _iso(due),

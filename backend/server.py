@@ -170,9 +170,15 @@ def _rebuild_rag_async():
     threading.Thread(target=work, daemon=True).start()
 
 
+# Bump when parser.py / normalize.py change the shape of a parsed issue, so the
+# on-disk parse cache (keyed by file hash) auto-invalidates instead of serving
+# stale records missing new fields (e.g. the owner field added 2026-07-05).
+_PARSE_SCHEMA = "v2-owner"
+
+
 def _ingest_path(path: Path, filename: str, mode: str = "replace"):
     raw = path.read_bytes()
-    h = hashlib.sha256(raw).hexdigest()[:16]
+    h = hashlib.sha256(_PARSE_SCHEMA.encode() + raw).hexdigest()[:16]
     # Always re-run normalize so the status audit (RAW → canonical mapping
     # counts) is captured for THIS upload. The cache hit only saves us the parse
     # cost; we re-canonicalize against the raw rows so the audit is faithful.
