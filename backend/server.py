@@ -173,7 +173,7 @@ def _rebuild_rag_async():
 # Bump when parser.py / normalize.py change the shape of a parsed issue, so the
 # on-disk parse cache (keyed by file hash) auto-invalidates instead of serving
 # stale records missing new fields (e.g. the owner field added 2026-07-05).
-_PARSE_SCHEMA = "v2-owner"
+_PARSE_SCHEMA = "v3-owner-dept-changeleader"
 
 
 def _ingest_path(path: Path, filename: str, mode: str = "replace"):
@@ -568,6 +568,16 @@ class Handler(BaseHTTPRequestHandler):
                                    "heatmap": [], "blocked": {}, "aging": [], "insights": []})
             from app.metrics import engines as E
             return self._send(E.risk_insights(data["issues"]))
+        if route == "/api/change-leaders":
+            data = storage.load_current()
+            if not data:
+                return self._send({"leaders": [], "stuck": [], "total_items": 0})
+            from app.metrics import engines as E
+            try:
+                sd = int(parse_qs(urlparse(self.path).query).get("stuck_days", ["100"])[0])
+            except ValueError:
+                sd = 100
+            return self._send(E.change_leaders(data["issues"], stuck_days=sd))
         if route == "/api/calendar":
             data = storage.load_current()
             if not data:

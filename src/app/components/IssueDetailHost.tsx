@@ -164,6 +164,8 @@ export function IssueDetailHost() {
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px 18px" }}>
                     <Field label={t("f_project")} value={i.project} />
                     <Field label={t("f_owner")} value={i.owner} />
+                    <Field label={t("f_owner_dept")} value={i.owner_department} />
+                    <Field label={t("f_change_leader")} value={i.change_leader} />
                     <Field label={t("f_pm")} value={i.pm} />
                     <Field label={t("f_assignee")} value={i.assignee} />
                     <Field label={t("f_reporter")} value={i.reporter} />

@@ -35,6 +35,9 @@ export function runDashboardAction(a: TemurAction, titles?: Record<string, strin
     case "open_kanban":
       via("dashboard", "pn-open-kanban");
       break;
+    case "open_change_leaders":
+      fire("pn-open-change-leaders");
+      break;
     case "ttm_panel":
       via("dashboard", "pn-ttm-panel", p);
       break;

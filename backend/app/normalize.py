@@ -31,10 +31,17 @@ _ALIASES = {
     "assignee": ["assignee", "исполнитель", "ответственный", "ijrochi", "mas'ul"],
     "reporter": ["reporter", "creator", "автор", "создатель", "muallif"],
     # Owner (владелец) — the business owner / initiator accountable for the epic
-    # or new feature. This is who action items must be assigned to. Prefer the
-    # full-name field, fall back to the plain "владелец".
-    "owner": ["фио владельца", "владелец", "owner", "product owner", "business owner",
-              "эгаси", "owner name", "ф.и.о. владельца"],
+    # or new feature. This is who action items must be assigned to. The "Владелец"
+    # field is the important one; "ФИО владельца" is only a fallback.
+    "owner": ["владелец", "owner", "product owner", "business owner",
+              "эгаси", "owner name", "фио владельца", "ф.и.о. владельца"],
+    # Owner's org-structure unit: PMO uses "Подразделение заказчика", PMD uses
+    # "Epic Name". Resolved project-aware in normalize_rows (see owner_department).
+    "epic_name": ["epic name", "epic name (custom)", "название эпика"],
+    # Change leader / stakeholder driving the epic or new feature:
+    # PMO → "Change leader", PMD → "Approver" / "Approved by".
+    "change_leader": ["change leader", "approved by", "approver", "approvers",
+                      "change managers", "лидер изменений"],
     # NOTE: project/scoring CSV-specific aliases handled below
     "created": ["created", "created date", "creation date",
                 "создано", "дата создания", "yaratilgan", "yaratilgan sana"],
@@ -517,6 +524,11 @@ def normalize_rows(rows: list[dict], default_project: str = "") -> list[dict]:
         is_epic = itype.strip().lower() in config.EPIC_TYPES
         project = _get(row, "project") or default_project or key.split("-")[0]
         history = _parse_history(_get(row, "history"), created, resolved, status_c)
+        # Owner's org-structure unit: PMO writes it in "Подразделение заказчика",
+        # PMD writes it in "Epic Name" — pick per project.
+        owner_dept = _get(row, "division")
+        if not owner_dept and project.upper().startswith("PMD"):
+            owner_dept = _get(row, "epic_name")
         issues.append({
             "key": key,
             "url": _get(row, "url"),
@@ -531,6 +543,8 @@ def normalize_rows(rows: list[dict], default_project: str = "") -> list[dict]:
             "assignee": _pretty_person(_get(row, "assignee")),
             "reporter": _pretty_person(_get(row, "reporter")),
             "owner": _pretty_person(_get(row, "owner")),
+            "owner_department": owner_dept,
+            "change_leader": _pretty_person(_get(row, "change_leader")),
             "created": _iso(created),
             "resolved": _iso(resolved),
             "due": _iso(due),

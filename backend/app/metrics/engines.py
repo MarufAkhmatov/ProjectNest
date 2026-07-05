@@ -635,11 +635,91 @@ def filter_issues(issues, scope="all", state="all", pm=None, project=None,
         out.append({
             "key": i["key"], "url": i.get("url", ""), "summary": i.get("summary", ""),
             "type": i["type"], "status": i["status"], "pm": i["pm"],
+            "owner": i.get("owner", ""), "owner_department": i.get("owner_department", ""),
+            "change_leader": i.get("change_leader", ""),
             "project": i["project"], "resolved": (i["resolved"] or "")[:10] if i.get("resolved") else "",
             "duration_days": dur,
         })
     out.sort(key=lambda x: (x["resolved"] or ""), reverse=True)
     return {"count": len(out), "issues": out[:limit]}
+
+
+# Early stages where an item can silently sit for months (candidate for a
+# "is the market demand still real?" review before more effort is spent).
+STUCK_STAGES = {"BACKLOG", "VALIDATION", "NEED INFO", "NEEDINFO", "ANALYSIS",
+                "KOРЗИНА ИДЕЙ", "КОРЗИНА ИДЕЙ", "INITIATION"}
+
+
+def _age_days(i, now=None):
+    """Days since the item entered its CURRENT status (falls back to created)."""
+    now = now or dt.datetime.now()
+    hist = i.get("history") or []
+    entered = None
+    for h in hist:
+        if (h.get("status") or "").upper() == (i.get("status") or "").upper():
+            entered = _d(h.get("entered"))
+    if not entered:
+        entered = _d(i.get("created"))
+    return max(0, (now - entered).days) if entered else None
+
+
+def change_leaders(issues, stuck_days=100):
+    """Group epics + new features by their change leader (stakeholder driving the
+    item). Per leader: how many items, how many done vs still open, and the items
+    stuck a long time in an early stage (BACKLOG / VALIDATION / NEED INFO / …) —
+    those are the ones to re-validate against the market before spending more."""
+    now = dt.datetime.now()
+    # only portfolio-level items: epics and new features
+    items = [i for i in issues
+             if i.get("is_epic") or "feature" in (i.get("type") or "").lower()]
+    leaders: dict[str, dict] = {}
+    for i in items:
+        cl = (i.get("change_leader") or "").strip() or "—"
+        done = is_done(i)
+        decl = is_declined(i)
+        age = _age_days(i, now)
+        stage = (i.get("status") or "").upper()
+        is_stuck = (not done and not decl and stage in STUCK_STAGES
+                    and age is not None and age >= stuck_days)
+        row = {
+            "key": i["key"], "url": i.get("url", ""), "summary": i.get("summary", ""),
+            "type": i.get("type", ""), "is_epic": bool(i.get("is_epic")),
+            "status": i.get("status", ""), "status_group": i.get("status_group", ""),
+            "owner": i.get("owner", ""), "owner_department": i.get("owner_department", ""),
+            "pm": i.get("pm", ""), "age_days": age,
+            "done": done, "declined": decl, "stuck": is_stuck,
+        }
+        g = leaders.setdefault(cl, {"change_leader": cl, "items": [], "total": 0,
+                                    "epics": 0, "features": 0, "done": 0, "open": 0,
+                                    "declined": 0, "stuck": 0, "departments": set()})
+        g["items"].append(row)
+        g["total"] += 1
+        g["epics"] += 1 if row["is_epic"] else 0
+        g["features"] += 0 if row["is_epic"] else 1
+        g["done"] += 1 if done else 0
+        g["declined"] += 1 if decl else 0
+        g["open"] += 1 if (not done and not decl) else 0
+        g["stuck"] += 1 if is_stuck else 0
+        if i.get("owner_department"):
+            g["departments"].add(i["owner_department"])
+
+    rows = []
+    for g in leaders.values():
+        g["items"].sort(key=lambda r: (not r["stuck"], -(r["age_days"] or 0)))
+        g["departments"] = sorted(g["departments"])
+        rows.append(g)
+    # leaders with the most stuck items first, then by workload
+    rows.sort(key=lambda g: (-g["stuck"], -g["total"]))
+    all_stuck = [r for g in leaders.values() for r in g["items"] if r["stuck"]]
+    all_stuck.sort(key=lambda r: -(r["age_days"] or 0))
+    return {
+        "leaders": rows,
+        "stuck_threshold_days": stuck_days,
+        "total_items": len(items),
+        "total_leaders": len([k for k in leaders if k != "—"]),
+        "total_stuck": len(all_stuck),
+        "stuck": all_stuck[:100],
+    }
 
 
 def calendar_events(issues, mode="resolved", start=None, end=None, itype=None, pm=None):

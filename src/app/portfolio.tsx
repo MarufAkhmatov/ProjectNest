@@ -29,6 +29,7 @@ interface PortfolioState {
   analyze: (text: string) => Promise<any>;
   calendar: (params: Record<string, string>) => Promise<any>;
   risk: () => Promise<any>;
+  changeLeaders: (stuckDays?: number) => Promise<any>;
   flow: (params: Record<string, string>) => Promise<any>;
   epicQuality: () => Promise<any>;
   epicQualityRecommend: (key: string, lang?: string) => Promise<any>;
@@ -53,6 +54,7 @@ const Ctx = createContext<PortfolioState>({
   analyze: async () => ({ similar: [], recommendation: "" }),
   calendar: async () => ({ events: [], types: [] }),
   risk: async () => ({ rollup: {}, register: [], heatmap: [], blocked: {}, aging: [], insights: [], health_buckets: {} }),
+  changeLeaders: async () => ({ leaders: [], stuck: [], total_items: 0 }),
   flow: async () => ({ series: [], summary: {} }),
   epicQuality: async () => ({ count: 0, flagged: [] }),
   epicQualityRecommend: async () => ({ found: false }),
@@ -289,6 +291,15 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const changeLeaders = useCallback(async (stuckDays: number = 100) => {
+    try {
+      const r = await fetch(`${API}/api/change-leaders?stuck_days=${stuckDays}`);
+      return await r.json();
+    } catch {
+      return { leaders: [], stuck: [], total_items: 0 };
+    }
+  }, []);
+
   const flow = useCallback(async (params: Record<string, string>) => {
     try {
       const qs = new URLSearchParams(params).toString();
@@ -391,7 +402,7 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <Ctx.Provider value={{ data, loading, online, meta, userRole, userName, refresh, upload, uploadBatch, ask, pmBoard, notifications, dataQuality, statusAudit, drill, issueDetail, issueSummary, issueRecommend, ttm, analyze, calendar, risk, flow, epicQuality, epicQualityRecommend, adminUsers, adminAddUser, adminResetPassword, adminDeleteUser, voiceStatus, voiceAsk, setOpenAIKey }}>
+    <Ctx.Provider value={{ data, loading, online, meta, userRole, userName, refresh, upload, uploadBatch, ask, pmBoard, notifications, dataQuality, statusAudit, drill, issueDetail, issueSummary, issueRecommend, ttm, analyze, calendar, risk, changeLeaders, flow, epicQuality, epicQualityRecommend, adminUsers, adminAddUser, adminResetPassword, adminDeleteUser, voiceStatus, voiceAsk, setOpenAIKey }}>
       {children}
     </Ctx.Provider>
   );

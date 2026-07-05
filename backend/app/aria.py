@@ -399,6 +399,12 @@ def recommend_issue(issue: dict) -> dict:
                       for c in comments[-8:]).strip()
 
     owner = (issue.get("owner") or "").strip()
+    change_leader = (issue.get("change_leader") or "").strip()
+    # Long-stalled in an early stage → the market demand may no longer be real.
+    from .metrics import engines as _E
+    stage_age = _E._age_days(issue)
+    _stuck = (not _E.is_done(issue) and (status or "").upper() in _E.STUCK_STAGES
+              and stage_age is not None and stage_age >= 100)
     facts = [
         f"Key: {issue.get('key')}",
         f"Summary: {issue.get('summary', '')}",
@@ -406,10 +412,18 @@ def recommend_issue(issue: dict) -> dict:
         f"Current status: {status} (stage: {group or 'unknown'})",
         f"OWNER (владелец — the business owner/initiator ACCOUNTABLE for this item): "
         f"{owner or 'not set'}",
+        f"CHANGE LEADER (stakeholder driving it — advise THEM on stop/continue): "
+        f"{change_leader or 'not set'}",
+        f"Owner department: {issue.get('owner_department') or 'n/a'}",
         f"PM: {issue.get('pm')}; Assignee: {issue.get('assignee') or 'unassigned'}",
         f"Priority: {issue.get('priority') or 'n/a'}",
         f"Age since created: {age if age is not None else 'unknown'} days",
+        f"Days in the CURRENT stage: {stage_age if stage_age is not None else 'unknown'}",
     ]
+    if _stuck:
+        facts.append(
+            f"STALLED: this item has sat {stage_age} days in the early '{status}' stage "
+            "without moving — a red flag that it may be stale or no longer a market priority.")
     if overdue_days:
         facts.append(f"OVERDUE by {overdue_days} days (past the due date)")
     if blockers:
@@ -424,6 +438,19 @@ def recommend_issue(issue: dict) -> dict:
         if owner else
         "No owner (владелец) is set — the FIRST recommendation must be to assign an accountable "
         "owner, since without one the item cannot be driven to completion. ")
+
+    stuck_rule = ""
+    if _stuck:
+        who = change_leader or owner or "the change leader"
+        stuck_rule = (
+            f"IMPORTANT — this item has been STALLED {stage_age} days in the early '{status}' stage. "
+            "Do NOT just suggest 'push it forward'. Recommend: (1) hand it to BUSINESS ANALYSIS to "
+            "re-verify whether the market demand / regulatory need is STILL actual (check competitors, "
+            "current market, whether the original problem still exists); (2) based on that, advise "
+            f"{who} (the change leader) with an explicit STOP-or-CONTINUE decision — if the demand is "
+            "gone, recommend declining/parking it to stop wasting capacity; if still valid, give the "
+            "concrete unblocking step and a committed restart date. Make the stop/continue call the "
+            "CENTRAL recommendation. ")
 
     # Pull the bank's regulations relevant to THIS item so the advice checks
     # compliance and follows the mandated process (committee, scoring, stages…).
@@ -443,7 +470,7 @@ def recommend_issue(issue: dict) -> dict:
         "is still OPEN. Using the facts, the quarterly status, the latest comments and the "
         "BANK REGULATIONS below, give 3-5 SPECIFIC, actionable recommendations to move it to "
         "successful completion THE WAY THE REGULATIONS REQUIRE. "
-        f"{owner_rule}"
+        f"{owner_rule}{stuck_rule}"
         "Check the item against the regulations: is it following the mandated process (project "
         "committee, scoring, required stages/artifacts, approvals)? If a required step is missing "
         "or done out of order, say so and give the compliant next step, citing the document by "
@@ -913,6 +940,13 @@ def detect_action(question: str, pm_names: list | None = None, last_action: dict
     if has("kanban", "канбан", "доск", "taxta") or w(r"\bboard\b"):
         return {"type": "open_kanban"}
 
+    # ---- change leaders analytics (workload per stakeholder + stuck items) ----
+    if has("change leader", "чендж лидер", "ченж лидер", "чейндж", "стейкхолдер",
+           "steykxolder", "change-leader", "лидер изменен") or \
+       (has("qotib", "qotgan", "застрял", "stalled", "stuck", "yotgan", "yotib") and
+            has("epik", "epic", "эпик", "loyiha", "проект", "feature", "фич")):
+        return {"type": "open_change_leaders"}
+
     # ---- issue detail: Jira key(s) explicitly referenced ----
     kms = re.findall(r"\b([a-z]{2,}-\d+)\b", ql)
     if len(kms) > 1:
@@ -1299,6 +1333,10 @@ def _action_message(a: dict, lang: str = "en") -> str:
         return {"en": "Opening the kanban board.",
                 "ru": "Открываю канбан-доску.",
                 "uz": "Kanban doskasini ochyapman."}[L]
+    if t == "open_change_leaders":
+        return {"en": "Opening the change-leaders view (workload + long-stalled items).",
+                "ru": "Открываю обзор change leader'ов (загрузка + застрявшие элементы).",
+                "uz": "Change leader'lar ko'rinishini ochyapman (yuklama + qotgan elementlar)."}[L]
     if t == "navigate":
         v = _VIEW_L.get(p.get("view", ""), {}).get(L, p.get("view", ""))
         return {"en": f"Opening {v}.", "ru": f"Открываю {v}.", "uz": f"{v.capitalize()}ni ochyapman."}[L]

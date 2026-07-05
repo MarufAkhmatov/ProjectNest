@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import {
-  Calendar,
+  Calendar, Users,
   Search, Settings, ChevronDown, MessageCircle, X, Upload, Sun, Moon, PartyPopper, Menu, ShieldAlert, AlertTriangle, UserCog, LogOut, ImageIcon,
 } from "lucide-react";
 import { usePortfolio } from "./portfolio";
@@ -16,6 +16,7 @@ import { AnalyzeModal } from "./components/AnalyzeModal";
 import { DrillDownHost } from "./components/DrillDownHost";
 import { EpicQualityModal } from "./components/EpicQualityModal";
 import { AdminPanel } from "./components/AdminPanel";
+import { ChangeLeadersModal } from "./components/ChangeLeadersModal";
 import { IssueDetailHost } from "./components/IssueDetailHost";
 import { openDrill } from "./drill";
 import { DeliveryFlowChart } from "./components/DeliveryFlowChart";
@@ -124,6 +125,7 @@ export default function App() {
   const [ttmOpen, setTtmOpen] = useState(false);
   const [ttmPreset, setTtmPreset] = useState<any>(null);
   const [analyzeOpen, setAnalyzeOpen] = useState(false);
+  const [clOpen, setClOpen] = useState(false);   // change-leaders analytics modal
   useEffect(() => {
     const openTtm = (e: Event) => { setTtmPreset((e as CustomEvent).detail || null); setTtmOpen(true); };
     const openDq = () => setDqOpen(true);
@@ -149,18 +151,21 @@ export default function App() {
     };
     const openEq = () => setEqOpen(true);
     const openAdmin = () => { if (isAdmin) setAdminOpen(true); };
+    const openCl = () => setClOpen(true);
     const closeAll = () => {
       setDqOpen(false); setTtmOpen(false); setAnalyzeOpen(false);
-      setEqOpen(false); setAdminOpen(false); setAvatarMgr(false);
+      setEqOpen(false); setAdminOpen(false); setAvatarMgr(false); setClOpen(false);
     };
     window.addEventListener("pn-nav", nav);
     window.addEventListener("pn-open-eq", openEq);
     window.addEventListener("pn-open-admin", openAdmin);
+    window.addEventListener("pn-open-change-leaders", openCl);
     window.addEventListener("pn-close-popups", closeAll);
     return () => {
       window.removeEventListener("pn-nav", nav);
       window.removeEventListener("pn-open-eq", openEq);
       window.removeEventListener("pn-open-admin", openAdmin);
+      window.removeEventListener("pn-open-change-leaders", openCl);
       window.removeEventListener("pn-close-popups", closeAll);
     };
   }, [isAdmin]);
@@ -375,6 +380,9 @@ export default function App() {
               </button>
               <button onClick={() => setDqOpen(true)} title={t("tip_data_quality")} style={{ width: 42, height: 42, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "var(--header-icon)", ...glassCircle }}>
                 <Settings size={17} />
+              </button>
+              <button onClick={() => setClOpen(true)} title={t("cl_title")} style={{ width: 42, height: 42, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "var(--header-icon)", ...glassCircle }}>
+                <Users size={17} />
               </button>
               {isAdmin && (
                 <button onClick={() => setAdminOpen(true)} title={t("tip_admin")} style={{ width: 42, height: 42, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#1a56db", ...glassCircle }}>
@@ -670,6 +678,11 @@ export default function App() {
 
       <AnimatePresence>
         {adminOpen && <AdminPanel onClose={() => setAdminOpen(false)} />}
+      </AnimatePresence>
+
+      {/* Change-leaders analytics: workload per stakeholder + long-stalled items */}
+      <AnimatePresence>
+        {clOpen && <ChangeLeadersModal onClose={() => setClOpen(false)} />}
       </AnimatePresence>
 
       {/* Drill-down popup: any number opens the underlying issue list */}

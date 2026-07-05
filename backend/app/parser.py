@@ -350,30 +350,52 @@ def _parse_jira_issuetable(text: str) -> list[dict]:
             self.rows: list[dict] = []
             self.cur: dict | None = None
             self.cell = ""
-            self.cell_field: str | None = None
+            self.cell_field: str | None = None   # canonical (_IT_CLASS) name
+            self.cell_cf: str | None = None       # customfield_XXXXX token, if any
             self.in_cell = False
+            self.is_header = False
+            # customfield_XXXXX -> visible label (built from the header <th> row),
+            # so custom columns (Владелец, Epic Name, Change leader, …) are kept
+            # under their real name for normalize's aliases to resolve.
+            self.cf_label: dict[str, str] = {}
 
         def handle_starttag(self, tag, attrs):
             if tag == "tr":
                 self.cur = {}
+                self.is_header = False
             elif tag in ("td", "th"):
+                if tag == "th":
+                    self.is_header = True
                 self.in_cell = True
                 self.cell = ""
                 cls = dict(attrs).get("class", "") or ""
-                self.cell_field = next((_IT_CLASS[t] for t in cls.split() if t in _IT_CLASS), None)
+                toks = cls.split()
+                self.cell_field = next((_IT_CLASS[t] for t in toks if t in _IT_CLASS), None)
+                self.cell_cf = next(
+                    (t.replace("headerrow-", "") for t in toks if "customfield_" in t), None)
 
         def handle_endtag(self, tag):
             if tag in ("td", "th"):
-                if self.cur is not None and self.cell_field and self.cell_field not in self.cur:
-                    val = _htmllib.unescape(re.sub(r"\s+", " ", self.cell)).strip()
-                    self.cur[self.cell_field] = val
+                val = _htmllib.unescape(re.sub(r"\s+", " ", self.cell)).strip()
+                if self.is_header and self.cell_cf and val:
+                    # header cell: remember this customfield's real column name
+                    self.cf_label.setdefault(self.cell_cf, val)
+                elif self.cur is not None:
+                    # data cell: store under canonical name and/or the custom label
+                    if self.cell_field and self.cell_field not in self.cur:
+                        self.cur[self.cell_field] = val
+                    lbl = self.cf_label.get(self.cell_cf or "")
+                    if lbl and val and not self.cur.get(lbl):
+                        self.cur[lbl] = val
                 self.in_cell = False
                 self.cell_field = None
+                self.cell_cf = None
             elif tag == "tr":
                 # keep only real issue rows (those carrying an issue key)
                 if self.cur and self.cur.get("Issue key"):
                     self.rows.append(self.cur)
                 self.cur = None
+                self.is_header = False
 
         def handle_data(self, data):
             if self.in_cell:
