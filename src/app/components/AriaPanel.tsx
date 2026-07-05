@@ -8,7 +8,7 @@ import { runDashboardAction } from "../actions";
 
 // Bump when the Temur panel changes — visible in the header so a stale cached
 // bundle is instantly recognizable.
-const TEMUR_UI_VERSION = "v2.1";
+const TEMUR_UI_VERSION = "v2.2";
 
 const suggestionKeys = ["suggestion1", "suggestion2"];
 const VOICE_BCP: Record<string, string> = { en: "en-US", ru: "ru-RU", uz: "uz-UZ" };
@@ -248,7 +248,8 @@ export function AriaPanel() {
   const messagesRef = useRef<any[]>([]);
   useEffect(() => { messagesRef.current = messages; }, [messages]);
   const convCtx = () => ({
-    history: messagesRef.current.slice(-8).map((m) => ({ role: m.role, text: (m.text || "").slice(0, 300) })),
+    // 800 chars keeps ALL issue keys of a long answer available for "open them"
+    history: messagesRef.current.slice(-8).map((m) => ({ role: m.role, text: (m.text || "").slice(0, 800) })),
     ui: getUiState(),
     last_action: lastActionRef.current,
   });
