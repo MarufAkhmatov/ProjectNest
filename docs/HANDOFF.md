@@ -3,241 +3,341 @@
 Paste this into a new session to continue instantly. (Conversation language: Uzbek.)
 
 ## What this is
-**ProjectNest** = a **Portfolio Intelligence Platform** for a Jira **PMD/PMO** portfolio,
-built ON TOP of an already-approved "healthcare" dashboard UI.
-**RULE #1: the approved dashboard's visual design/layout/colors must not change — only data.**
-The user DOES authorize targeted redesigns when explicitly asked (TTM panel, Project Flow,
-the Portfolio-Progress panel → now "Delivery Flow", Top Projects ⓘ + clickable rows,
-Delivery Flow's bars → segmented vertical sticks, and brand-new pages like Calendar / Risk).
+**ProjectNest** = a **Portfolio Intelligence Platform** for a Jira **PMD/PMO** portfolio
+at a bank, with a local AI assistant **Temur** that (1) answers portfolio questions,
+(2) **drives the dashboard itself** (opens panels, applies filters, switches pages —
+no clicking needed), and (3) grounds its analysis/recommendations in **both** the
+issue's own data **and** the bank's normative documents (via a local RAG index), so
+advice is objective and cites real regulations by name/section.
 UI is localized **EN / RU / UZ**, light + dark theme.
 
-- Repo: https://github.com/MarufAkhmatov/Dashboard-for-Sigmintation (branch `main`)
-- **Local (PRIMARY — use this path):** `C:\Users\ASUS\Desktop\ProjectNest`
-  *(Moved from Downloads on 2026-06-21. Scheduled Task, watchdog, and Desktop shortcuts all updated.)*
+- **Repo:** https://github.com/MarufAkhmatov/ProjectNest (branch `main`) — renamed from
+  `Dashboard-for-Sigmintation` on 2026-07-04; old URL auto-redirects. **Public repo** —
+  consider making it private (bank-internal tool); not yet done, ask the user first.
+- **Local (PRIMARY — always edit here):** `C:\Users\ASUS\Desktop\ProjectNest`
+- **CI:** GitHub Actions (`.github/workflows/ci.yml`) — frontend typecheck+build,
+  backend compile+selftest, runs on every push to `main`.
+- **Docker:** `docker compose up -d --build` → `projectnest-backend` (stdlib API) +
+  `projectnest-web` (nginx + built SPA) on :8080 (or `PN_WEB_PORT=xxxx` to override).
 
 ## Stack & how to run
-- **Frontend**: Vite + React + TS. Built to `dist/` via `npm run build` (from `Desktop\ProjectNest`).
-- **Backend**: **Python 3.14 stdlib HTTP server** (`backend/server.py`). Stdlib only + `openpyxl`.
-  FastAPI/pydantic do NOT build on 3.14.
+- **Frontend**: Vite + React + TS. Built to `dist/` via `npm run build`. `npm run typecheck`
+  runs `tsc --noEmit` (tsconfig.json added 2026-07-04 — didn't exist before).
+- **Backend**: **Python 3.14 stdlib HTTP server** (`backend/server.py`). Stdlib +
+  `openpyxl`, `pymupdf` (PDF), `python-docx`, `Pillow`, `pytesseract` (OCR). No pandas/
+  pydantic/FastAPI (don't build on 3.14).
+- **Local AI**: Ollama, fully local (no Anthropic API calls in production) — model
+  `temur` (qwen2.5:7b-instruct based, custom Modelfile), embeddings `nomic-embed-text`.
+  CPU-only machine: cold start ~2 min, warm reply ~20s, full RAG rebuild ~40 min for
+  ~870 issues (but **incremental** — see RAG section below, so this is rare).
 
 ### ★ PRODUCTION model — ONE resilient process on :8080
-- `backend/server.py` serves **both** the SPA (`dist/`) **and** `/api` on a single port.
-  Port = env `PN_PORT` (default 8077 for dev; **prod runs PN_PORT=8080**). Same-origin → no proxy.
-- **Auth**: `/api/login`, `/api/logout`, `/api/me`; all `/api/*` require a valid HMAC-signed `pn_session`
-  cookie (30-day). `/api/health` is public. Static SPA is public. **All DATA is gated.**
-  Credentials stored in `storage/auth.json` — **multi-user format as of 2026-06-21** (see Auth section).
-- **Resilience**: `serve-prod.ps1` is a watchdog loop — every 15s, if :8080 is down, restarts Python hidden.
-  If the watchdog itself dies, run: `Start-ScheduledTask -TaskName ProjectNest`.
-- **Auto-start**: Scheduled Task **"ProjectNest"** (trigger=AtLogOn, RestartCount=999) runs `serve-prod.ps1`
-  from `C:\Users\ASUS\Desktop\ProjectNest\serve-prod.ps1`. `serve-prod.ps1` uses `$MyInvocation` to find
-  its own path dynamically — works wherever the folder lives.
-- Frontend gate: `src/app/components/AuthGate.tsx` wraps the app; checks `/api/me`, shows login screen.
+- `backend/server.py` serves **both** the SPA (`dist/`) **and** `/api` on one port
+  (env `PN_PORT`, prod = 8080). Same-origin → no proxy.
+- **Auth**: `/api/login`, `/api/logout`, `/api/me`; all other `/api/*` require a valid
+  HMAC-signed `pn_session` cookie. `/api/health` public. Credentials in
+  `storage/auth.json` (gitignored, multi-user `{"users":[...]}` format).
+- **Resilience**: `serve-prod.ps1` watchdog — polls every **5s** (tightened 2026-07-05,
+  was 15s), restarts Python hidden if :8080 is down, pins `PN_PORT=8080`. Scheduled
+  Task **"ProjectNest"** (AtLogOn) runs it. If dead: `Start-ScheduledTask -TaskName ProjectNest`.
+- ⚠️ **Known recurring trap**: an OLD watchdog from the original `Downloads\...` path can
+  reappear (someone manually launches `serve-prod.ps1` from there) and race for :8080
+  with STALE code/data. **First check whenever "changes aren't showing up":**
+  `Get-NetTCPConnection -LocalPort 8080` → owning process's CommandLine MUST point at
+  `Desktop\ProjectNest\backend\server.py`. Kill anything else holding :8080.
 
 ### Dev model
-- `npm run dev` → http://localhost:5173 (HMR), proxies `/api` → :8077.
-- `python backend/server.py` (default 8077 dev port). Login required.
-
-### Access URLs
-- **PC:** http://localhost:8080
-- **Phone (same Wi-Fi):** `http://<LAN-IP>:8080` — firewall rule "ProjectNest 8080" enabled (all profiles).
-  LAN IP: run `Get-NetIPAddress -AddressFamily IPv4` — last seen **192.168.2.158**.
-  Requires same subnet, no client-isolation. Type `http://` not `https://`.
-- **Secure tunnel:** `start-tunnel.ps1` → cloudflared → `https://<name>.trycloudflare.com` (URL changes each run).
-
-### Desktop shortcuts (created 2026-06-21)
-- **ProjectNest Dashboard.url** → `http://localhost:8080`
-- **ProjectNest (Papka).lnk** → `C:\Users\ASUS\Desktop\ProjectNest`
+- `npm run dev` → http://localhost:5173, proxies `/api` → :8077.
+- `python backend/server.py` (default 8077 dev port).
 
 ---
 
-## Auth — Multi-user system (added 2026-06-21)
+## Data reality — daily Jira exports (IMPORTANT, changed 2026-07-10)
+6 files, both PMD and PMO now export **both CSV and HTML** (PMD used to be HTML-only):
+1. **PMD CSV** — rich (owner, change leader, justification/goals/DoD/business-eff, etc).
+2. **PMD HTML** (issuetable format) — supplementary, real display names.
+3. **PMO CSV** — same, PMO project.
+4. **PMO HTML** — supplementary for PMO.
+5. **PMD History (Current fields) XLSX** — changelog → exact TTM.
+6. **PMO History XLSX** — same for PMO.
 
-`storage/auth.json` uses a **`{"users": [...]}` array format** (replaced the old single-user format).
-`_load_users()` in `server.py` auto-migrates the old format if needed (reads fresh each login).
+**Correct re-ingest order** (mirrors the frontend's own `uploadBatch()` sort — alpha,
+non-history first, history last): PMD CSV (**replace**) → PMD HTML (**merge**) → PMO CSV
+(**merge**) → PMO HTML (**merge**) → PMD History → PMO History.
+- CSV = rich/authoritative (full overwrite by key). HTML = supplementary (**fills blank
+  fields only**, never clobbers CSV data).
+- **Current active dataset** (as of 2026-07-10): ~870 issues / 139 epics / [PMD, PMO].
+- **After parser/normalize.py change → bump `_PARSE_SCHEMA` in `server.py`** (currently
+  `"v4-justification-goals-dod-bizeff-checklist"`) — the on-disk parse cache is keyed by
+  file-hash + this string; without bumping it, re-uploading the SAME file bytes silently
+  serves the OLD parsed shape.
+- **Without History XLSX, TTM phases collapse** (Delivery=0, Lead=0).
 
-### Accounts
-One `admin` account plus 19 `pm` accounts (usernames = corporate e-mail addresses).
-Credentials live ONLY in `storage/auth.json` (gitignored) — never commit them.
+### Full field list now captured (`normalize.py` issue dict)
+`key, project, type, is_epic, status, status_group, summary, description, pm, assignee,
+reporter, owner, owner_department, change_leader, justification, goals,
+definition_of_done, business_effectiveness, smart_checklist_progress,
+smart_checklist_items, created, resolved, due, epic_key, story_points, priority,
+project_type, regulator, division, scoring, quarterly_status, comments, links, history`
 
-**Login is case-sensitive** — the admin username starts with a capital letter. All PM usernames are lowercase email addresses.
+**Person/accountability fields (added 2026-07-05/06):**
+- `owner` — from **"Владелец"** (the important one; "ФИО владельца" only a fallback).
+  This is who's accountable and who recommendations address action items to.
+- `owner_department` — PMO: `Подразделение заказчика`; PMD: `Epic Name` (project-aware).
+- `change_leader` — PMO: `Change leader`; PMD: `Approver`/`Approved by` (the stakeholder
+  driving the item — used for the Change-Leaders analytics panel).
 
-### Admin API endpoints (require `role: admin`)
-| Endpoint | Method | Action |
-|----------|--------|--------|
-| `/api/admin/users` | GET | List all users (no passwords) |
-| `/api/admin/users` | POST `{username, password, role, name}` | Create user |
-| `/api/admin/users/reset` | POST `{username, password}` | Reset password |
-| `/api/admin/users/delete` | POST `{username}` | Delete user |
-
-Safety: cannot delete the last admin. Non-admin gets 403. Secret HMAC key in `storage/.auth_secret`.
+**Epic/feature "passport" fields (added 2026-07-10):**
+- `justification` (Обоснование), `goals` (Цели), `definition_of_done` (Задачи DoD),
+  `business_effectiveness` (Бизнес-эффективность) — free text, truncated to 300 chars
+  when embedded in RAG, 400 when sent to the LLM as facts.
+- `smart_checklist_progress` — clean ratio ("6/6 - Done"). `smart_checklist_items` —
+  cleaned ✓/○ list, parsed out of Jira Smart Checklist's verbose serialized-object dump
+  via `normalize._parse_smart_checklist()` (regex-based, best-effort; raw blob is NEVER
+  stored). PMD-only in practice today; PMO doesn't export these 3.
+- `_get()` in `normalize.py` also now strips a leading `'` — an Excel/Jira CSV artifact
+  that force-texts cells starting with `-` (very common on bullet-list fields).
 
 ---
 
-## Data reality (IMPORTANT)
-Daily Jira exports; PMD + PMO merged. Files:
-1. **CSV "all fields"** — rich (PM, comments, links, regulator/division/scoring, **description**).
-   Person fields are emails → prettified. Key col = `Ключ проблемы`.
-2. **HTML "Printable"** — real display names.
-3. **History (Current fields) XLSX** — changelog (status transitions) → EXACT TTM.
-   **Without history XLSX, TTM phases collapse** (Delivery=0, Lead=0, Discovery=total).
+## Person identity resolution (added 2026-07-06) — `backend/app/identity.py`
+**Problem**: the SAME human appears under different name-strings depending on which
+export wrote it — a custom field with only an email becomes an INITIAL form via
+`normalize._pretty_person()` ("o.saidov@bank.uz" → "O. Saidov"), while an HTML export
+carries the FULL display name ("Ozod Saidov"). A CSV (overwrites) and HTML (fills-blanks-
+only) landing on DIFFERENT epics for the same person leaves BOTH forms live at once —
+splitting that person across two PM-Leaderboard rows / two Change-Leader cohorts / two
+Owner counts.
+**Fix**: `identity.resolve_identities(issues)` groups all `pm`/`owner`/`change_leader`
+values dataset-wide by (last-name, first-name-or-initial-prefix) — full names bucket by
+EXACT match (so two genuinely different first names sharing a surname never merge);
+initial forms (incl. 2-letter Uzbek/Russian digraphs like "Sh"→"Shakhzoda") route to the
+matching full-name bucket by prefix. Runs **automatically** in `server.py::_ingest_path()`
+after every merge, before `aggregate.build()` — no action needed on future uploads.
+**Known gap**: Uzbek patronymic-suffix names ("Firstname Middlename угли/қизи", 4 tokens)
+use `toks[-1]` as the grouping key which is the suffix, not a real surname — currently
+harmless (no false merges observed) but would need `_parse_person()` extended if a
+duplicate ever surfaces for such a name.
+One-off fix script for a dataset already loaded (no re-upload needed):
+`python backend/scripts/fix_identities.py` (idempotent).
 
-- **Daily ingest order:** PMD CSV (replace) → PMO CSV (merge) → PMD History (enrich) → PMO History (enrich).
-  FE batch-upload auto-sorts this for you.
-- **Current active dataset:** 823 issues / 138 epics / projects [PMD, PMO] / 150 history-enriched.
-  Last ingest: 2026-06-18 15:05.
-- **After parser/normalize change → clear `storage/temp/cache/*.json` AND re-ingest.**
-- **After backend code change → restart server** (kill :8080 python; watchdog relaunches in ≤15s,
-  or `Start-ScheduledTask -TaskName ProjectNest`).
+---
+
+## Temur AI — dashboard control (added 2026-07-04) — `backend/app/aria.py` + `src/app/actions.ts`
+Temur doesn't just chat — it can **drive the UI**. `aria.detect_action(question, pm_names,
+last_action, history)` deterministically (no LLM, instant) maps natural-language commands
+(EN/RU/UZ, incl. Latin-typed Russian) to ~20 action types: navigate pages, calendar
+filters (year/month/day/mode), TTM modal + trend panel, drill-downs (by state/status/PM
+name/period, incl. free-text topic search with Cyrillic↔Latin transliteration), kanban,
+risk cohorts/panels, PM leaderboard period, flow granularity, theme, UI language,
+celebrations toggle, close-all-popups, "back", and **"open them"** (extracts issue keys
+from Temur's own last answer and opens them together in one drill list). Contextual
+refinement: a short follow-up ("tip epic", "2025 uchun") tweaks the LAST action instead
+of being treated as a fresh question (guarded so real questions don't get swallowed).
+Frontend: `runDashboardAction()` in `actions.ts` turns the action dict into the same
+CustomEvents the on-screen buttons fire. Full scenario catalog: `docs/TEMUR_SENARIYLAR.md`.
+**Conversation memory + UI-state awareness**: the frontend sends the last ~8 messages and
+current page/popup to `/api/aria`; Temur's prompts include this so follow-ups and "what's
+on my screen" questions work. Page-scope (issue card open) answers pull the FULL issue
+record (not just visible fields) and ASSESS it like an analyst (age, blockers, stage) —
+see the RAG section below for how regulations get pulled in too.
+
+---
+
+## RAG — knowledge base + regulations grounding — `backend/app/rag.py` + `docs.py`
+Local vector index (`ai/vector_db/index.json`), embeds with `nomic-embed-text` via Ollama.
+Three record kinds in one corpus: `issue` (every Jira issue, compact doc via
+`rag._issue_doc()`), `kb` (plain .md/.txt in `knowledge_base/`), `doc` (real bank
+documents in **`knowladgebasefromdocs/`** — user drops PDFs/DOCX/scans/images there,
+`docs.py` extracts text, OCR's scanned pages with Tesseract rus+uzb+uzb_cyrl+eng, caches
+extracted text by content-hash so OCR runs once).
+- **`knowladgebasefromdocs/` is gitignored** (confidential bank docs — structure, project/
+  committee/PMO-department regulations, new-product policy) — only `README.md` +
+  `.gitkeep` are tracked. Currently has 6 real documents loaded.
+- **Incremental rebuild**: `rag.build_index()` reuses existing vectors keyed by
+  `(id, sha1(text))` — only issues/docs whose text actually CHANGED get re-embedded. A
+  batch of 5+ uploads used to trigger a rebuild per-file that raced and left a
+  partial/stale index (fixed 2026-07-10 with a `pending`-flag debounce in
+  `server.py::_rebuild_rag_async()` — a request during a build now re-runs the build once
+  more against the final dataset instead of being dropped).
+- **`rag.build_docs_only()`**: fast path to index JUST the documents (a few minutes)
+  without re-embedding all ~870 issues — use this after adding a new document.
+- **`kinds` filter (added 2026-07-10)**: `search()`/`context_block()` take an optional
+  `kinds: set[str]` param. Without it, `[DOC]`/`[KB]`/`[ISSUE]` compete purely on query-
+  relevance, so a query resembling an issue's own text can crowd out regulation chunks.
+  `aria.py`'s `recommend_issue()` and the page-scope issue analysis both pass
+  `kinds={"doc"}` for their regulation retrieval — grounding is now **structurally
+  guaranteed**, not gambled on query phrasing.
+- **Verified working**: PMD-780's recommendation cites both its own numbers (153.7 млрд
+  сум projected volume, RICE score) AND specific regulation sections ("Положению о
+  проектном комитете раздел 3.1", "раздел 17", "раздел 18") in the same response.
+
+---
+
+## Change-Leaders analytics (added 2026-07-05/06)
+`metrics/engines.change_leaders(issues, stuck_days=100)` groups every epic/new-feature by
+`change_leader` — workload (total/done/open/declined), departments, and items **STUCK
+100+ days** in an early stage (BACKLOG/VALIDATION/NEED INFO/ANALYSIS/INITIATION) via
+`_age_days()` (days since entering the CURRENT status, from changelog history). Endpoint
+`/api/change-leaders?stuck_days=100`. Frontend: `ChangeLeadersModal.tsx` (By-Leader +
+Stuck tabs), header 👥 button, Temur action ("change leaderlarni ko'rsat" / "qotib qolgan
+epiklar").
+**Temur's stuck-item advice** (`recommend_issue()` in aria.py): for a long-stalled item,
+the recommendation is NOT "push it forward" — it tells the **owner** to hand it to
+Business Analysis to re-verify the market demand is still real, then gives the **change
+leader** an explicit STOP-or-CONTINUE call. Verified on real data (PMO-41, 649d in
+ANALYSIS).
 
 ---
 
 ## Backend layout (`backend/app/`)
-- `parser.py` — CSV/XLSX/HTML + `is_history_file()` + `parse_jira_history()`.
-- `normalize.py` — aliases EN/RU/UZ, status fix, strips custom-field wrapper, email→name, clean comments.
-  Fields: `key, project, type, is_epic, status, status_group, summary, description, pm, assignee, reporter,
-  created, resolved, due, epic_key, story_points, priority, project_type, regulator, division, scoring,
-  quarterly_status, comments, links, history`. `description` added 2026-06-16 for epic QA engine.
-  Status audit: `reset_status_audit()` / `get_status_audit()` / `stop_status_audit()` per ingest.
-- `config.py` — status taxonomy, DISCOVERY/DELIVERY/DONE/DECLINED sets, ROOT/STORAGE paths.
-- `metrics/engines.py` — pure fns: `issue_ttm`, `ttm_analysis`, `portfolio_kpis`, `epic_status_flow`,
-  `project_health` (0–100 → **this is the % in Top Projects, NOT completion**), `pm_leaderboard(_period)`,
-  `filter_issues`, `calendar_events`, `risk_insights`, `flow_balance`,
-  **`epic_quality` + `epic_problems`** (epic QA, added 2026-06-16).
-- `aggregate.py` — `top_projects` = top 3 epics by `project_health` score.
-- `aria.py` — **Temur AI**. Provider chain: Anthropic API → Claude CLI → Ollama → grounded fallback.
-  `ask(q, payload, lang, scope, context)`: detect_action, intent, grounded/LLM answer.
-  `recommend_epic_quality(epic, problems, lang)` — PM-to-author message, multilingual, LLM→grounded fallback.
-- `storage.py` — `storage/current/dataset.json`; persists status audit.
-- `server.py` — multi-user auth: `_load_users()`, `_save_users()`, `_find_user()`, `_is_admin()`.
+- `parser.py` — CSV/XLSX/HTML. `_parse_jira_issuetable()` (HTML issuetable format) now
+  **generically captures arbitrary custom columns**: maps `customfield_XXXXX` header
+  labels (from `<th class="headerrow-customfield_X">`) to their real names, stores data
+  cells under both canonical AND real-label keys — so any NEW Jira custom field just
+  needs an alias in `normalize.py`, no parser change. `_parse_jira_printable()` (older
+  format) is similarly generic via a `<b>Label:</b>` regex.
+- `normalize.py` — `_ALIASES` dict (canonical field → raw column-header variants,
+  case-insensitive EXACT match via `_get()`), person-name prettification, comment
+  cleaning, status canonicalization (+ mixed-script Cyrillic/Latin detection),
+  `_parse_smart_checklist()`. See "Full field list" above.
+- `identity.py` — person name-variant resolution (see section above).
+- `docs.py` — document text extraction (PDF/DOCX/XLSX/images/HTML) + OCR for the RAG
+  knowledge base.
+- `rag.py` — vector index build/search/context_block (see RAG section above).
+- `config.py` — status taxonomy, paths.
+- `metrics/engines.py` — `issue_ttm`, `ttm_analysis`, `portfolio_kpis`, `project_health`
+  (0–100, = Top Projects %, NOT completion), `pm_leaderboard(_period)`, `filter_issues`
+  (supports `text=` fuzzy topic search and `keys=` multi-key lookup), `calendar_events`,
+  `risk_insights`, `flow_balance`, `epic_quality`/`epic_problems`, `change_leaders`,
+  `_age_days`, `STUCK_STAGES`.
+- `aggregate.py` — `top_projects` = top 3 epics by `project_health`.
+- `aria.py` — **Temur AI**. `ask()` (main entry — action detection → page-scope →
+  general chat, all with conversation history + UI-state), `recommend_issue()`,
+  `recommend_epic_quality()`, `detect_action()` (dashboard control), `_action_message()`.
+- `storage.py` — `storage/current/dataset.json` + status audit + parse-cache.
+- `server.py` — HTTP handler, multi-user auth, `_ingest_path()` (upload → parse → merge
+  → **identity resolution** → aggregate → save → async RAG rebuild), `_PARSE_SCHEMA`.
 
----
+## Frontend layout (`src/app/`)
+- `main.tsx` — Theme → I18n → AuthGate → Portfolio → App.
+- `actions.ts` (2026-07-04) — `runDashboardAction()`, the Temur→UI action bus.
+- `portfolio.tsx` — API context. `changeLeaders(stuckDays)` added 2026-07-05.
+- `App.tsx` — header controls incl. 👥 Change-Leaders button; listens for Temur's
+  `pn-nav`/`pn-cal`/`pn-risk`/`pn-*` CustomEvents; page switch `dashboard|calendar|risk`.
+- `components/ChangeLeadersModal.tsx` (2026-07-05) — By-Leader / Stuck-100+-days tabs.
+- `components/IssueDetailHost.tsx` — issue popup. Fields incl. Owner/Owner's dept/Change
+  leader, and (2026-07-10) Justification/Goals/DoD/Business-effectiveness (as dedicated
+  text blocks matching the Quarterly-Status pattern) + Checklist progress/items.
+- `components/AdminPanel.tsx` — user management (admin only).
+- `components/CalendarView.tsx`, `RiskDashboard.tsx` — Calendar / Risk pages.
+- `popup.ts` — `usePopupOpen`, `useTemurBesidePad`, `setPageContext`, `setUiView` (Temur
+  UI-state awareness).
+- `i18n.tsx` — EN/RU/UZ. Search for `f_owner`, `f_justification`, `cl_` (Change-Leaders),
+  admin panel keys.
 
-## Key endpoints (require session cookie except health/me/login)
+## Key endpoints
 ```
 /api/health (public) · /api/me · /api/login · /api/logout
 /api/dashboard · /api/analytics · /api/uploads
-/api/ttm · /api/issues · /api/issue · /api/issue-summary · /api/issue-recommend
+/api/ttm · /api/issues (scope/state/pm/status/period/text/keys) · /api/issue · /api/issue-summary · /api/issue-recommend
 /api/pm-leaderboard · /api/notifications · /api/data-quality · /api/status-audit
 /api/calendar?mode=resolved|created
-/api/risk · /api/flow?granularity=month|quarter|year
-/api/epic-quality?project=PMD&days=90
-/api/epic-quality-recommend?key=&lang=
-/api/analyze (POST) · /api/aria (POST {question,lang,scope,context})
-/api/admin/users (GET+POST, admin only)
-/api/admin/users/reset (POST, admin only)
-/api/admin/users/delete (POST, admin only)
+/api/risk · /api/change-leaders?stuck_days=100 · /api/flow?granularity=
+/api/epic-quality?project=PMD&days=90 · /api/epic-quality-recommend?key=&lang=
+/api/analyze (POST) · /api/aria (POST {question,lang,scope,context,mode,probe,history,ui,last_action})
+/api/temur/status · /api/temur/rebuild-rag (POST, admin)
+/api/admin/users (GET+POST) · /api/admin/users/reset · /api/admin/users/delete
 ```
 
 ---
 
-## Frontend layout (`src/app/`)
-- `main.tsx` — providers: Theme → I18n → **AuthGate** → Portfolio → App.
-- `useBreakpoint.ts` — `mobile | tablet | desktop`. Re-syncs `setBp(get())` in `useEffect` on mount
-  + `orientationchange` listener. Without this: mobile users got the desktop layout.
-- `portfolio.tsx` — context with all API methods. Includes:
-  - `userRole: string | null` and `userName: string | null` (fetched from `/api/me` on mount).
-  - `adminUsers()`, `adminAddUser()`, `adminResetPassword()`, `adminDeleteUser()` (admin panel methods).
-  - `uploadBatch(files, mode, onProgress)` — smart-sorts: issue CSVs first → history XLSX last.
-  - `epicQuality()`, `epicQualityRecommend(key, lang)`.
-- `App.tsx` — header controls: lang, theme, multi-file upload (progress badge), ⚠️ epic QA alert,
-  🎉 celebrations, ⚙️ DQ, 👤 admin panel button (**`UserCog` icon, blue — only if `userRole === "admin"`**),
-  🔔 bell, avatar. Mobile **hamburger** includes all items incl. Admin Panel if admin.
-  Top-nav page switch: `dashboard | calendar | risk`.
-- `components/AdminPanel.tsx` (**new 2026-06-21**) — User Management modal (admin only):
-  - Lists all 20 users with name, email login, role badge (Admin=blue, PM=grey).
-  - **Add user** — inline expandable form (username/email, display name, password, role dropdown).
-  - **Reset password** — per-row 🔑 button opens inline password input; Enter or Confirm to save.
-  - **Delete user** — 🗑 button with `window.confirm`; blocked if deleting the last admin.
-  - Uses `usePopupOpenSignal(true)` + `useTemurBesidePad()`.
-- `components/BestProjects.tsx` — Top Projects panel. ⓘ methodology popover (top-right). Full project name
-  (no truncation). Score stacked `99% / HEALTH`. Whole row clickable → `openIssue(key)`. Jira ↗ icon.
-- `components/WellnessChart.tsx` — Delivery Flow. Custom `<SegmentedBar>` shape for recharts:
-  stacked pill ticks (`seg=2.4, gap=3.6, rx=seg/2`) matching Project Flow donut spokes.
-- `components/EpicQualityModal.tsx` — ⚠️ new-epic QA modal. Severity strip, problem badges, quality score,
-  author/PM/date, "Draft author feedback" → lazy `/api/epic-quality-recommend`. Cards have `flexShrink: 0`.
-- `components/CalendarView.tsx` — Calendar page (resolved/created, Day/Week/Month/Year, zoom, scroll).
-- `components/RiskDashboard.tsx` — Risk page (6 KPI metrics, register, heatmap, aging, blocked, AI insights).
-- `popup.ts` — `usePopupOpen`, `useTemurBesidePad`, `setPageContext` (Temur scope-choice: page vs global).
-- `i18n.tsx` — EN/RU/UZ. Admin panel keys: `tip_admin`, `admin_title/subtitle`, `admin_col_*`,
-  `admin_role_admin/pm`, `admin_add/reset/delete`, `admin_field_*`, `admin_err_*`, `admin_ok_*`.
-
----
+## DONE 2026-07-10 session (this session — see individual commits for detail)
+1. **Rebrand + repo hygiene**: title/README/package.json ProjectNest (was Figma template
+   "Clone Web Page with Animation"); deleted unused healthcare-template components
+   (GlucoseGauge/HRVChart/StressRecoveryChart/SuggestedSteps, figma import assets);
+   renamed PatientFlowChart→ProjectFlowChart, HealthcareProviders→PmLeaderboard,
+   WellnessChart→DeliveryFlowChart; `.gitignore` hardened (secrets/binaries); GitHub repo
+   renamed `Dashboard-for-Sigmintation`→`ProjectNest`.
+2. **CI/CD**: `.github/workflows/ci.yml` added. **Docker**: old broken postgres/chroma
+   compose replaced with the actually-working stdlib-backend+nginx stack, renamed
+   `projectnest-*`.
+3. **Audit fixes**: Temur's Send button threw (MouseEvent passed into a string param);
+   AdminPanel's Temur-beside padding applied to the wrong element; `tsconfig.json` added.
+4. **Temur dashboard control** (`actions.ts` + `aria.detect_action`): ~20 action types,
+   conversation memory, UI-state awareness, contextual refinement, "open them" (opens
+   issue keys from Temur's own last answer), translit-Russian command support, fuzzy
+   translit-tolerant topic search, faster watchdog (5s poll).
+5. **Owner/Owner's-department/Change-Leader fields**: read from Владелец/Подразделение
+   заказчика(PMO)-EpicName(PMD)/Change leader(PMO)-Approver(PMD); shown in issue popup;
+   embedded in RAG; recommendations address the owner by name.
+6. **Person identity resolution** (`identity.py`): dedups PM/owner/change-leader name
+   variants dataset-wide (see section above). Fixed a live-data bug (parse-cache didn't
+   invalidate on schema change → served owner-less records after the code shipped).
+7. **Change-Leaders analytics + stuck-item detection + Temur BA-handoff advice** (see
+   sections above).
+8. **Knowledge base RAG** (`docs.py` + `rag.py` docs integration): OCR'd 6 real bank
+   documents, incremental+docs-only rebuild paths, `kinds` filter fix for grounding.
+9. **Epic/feature "passport" fields** (justification/goals/DoD/business-effectiveness/
+   Smart-Checklist): read, shown in UI, embedded in RAG, fed into Temur's recommendation
+   facts alongside doc-filtered regulation retrieval. Also fixed a general Excel
+   leading-apostrophe CSV artifact affecting all text fields.
+10. Live dataset re-ingested with all of the above (870 issues / 139 epics); RAG fully
+    rebuilt; verified end-to-end in browser (PMD-780 popup + grounded recommendation
+    citing specific regulation sections).
 
 ## DONE 2026-06-21 session
+- Multi-user auth + Admin Panel (`storage/auth.json` `{"users":[...]}` format, 20
+  accounts). Project relocated Downloads→`Desktop\ProjectNest`.
 
-### Admin Panel & multi-user auth
-- **`storage/auth.json`** rewritten to `{"users": [...]}` array format with 20 accounts (1 admin + 19 PMs).
-- **`backend/server.py`**: replaced `_load_auth()` with `_load_users()`, `_save_users()`, `_find_user()`,
-  `_is_admin()`. Login handler checks against users array, returns `{ok, user, role}`. `/api/me` now
-  returns `{authed, user, role, name}`. Added GET `/api/admin/users` + POST `/api/admin/users`,
-  `/api/admin/users/reset`, `/api/admin/users/delete` — all require `_is_admin()` (403 otherwise).
-  Cannot delete the last admin. `_send_login(user, role)` signature updated to return role.
-- **`src/app/portfolio.tsx`**: `userRole` + `userName` state (fetched from `/api/me` on mount).
-  Added `adminUsers`, `adminAddUser`, `adminResetPassword`, `adminDeleteUser` methods.
-- **`src/app/components/AdminPanel.tsx`**: new modal component (see above).
-- **`src/app/i18n.tsx`**: added admin panel translation keys in EN, RU, UZ.
-- **`src/app/App.tsx`**: added `UserCog` lucide import, `adminOpen` state, admin button in header
-  (desktop, admin-only), admin item in hamburger (admin-only), `<AdminPanel>` in AnimatePresence.
+## DONE 2026-06-16/18 session
+- New-epic Quality Alert (`EpicQualityModal`, `epic_quality`/`epic_problems` engine).
+- Top Projects redesign, Delivery Flow segmented bars, mobile chart height fixes.
 
-### Project relocated to Desktop
-- Project folder copied from `Downloads\...\DashboardForJiraTasksAndCalendars-main (1)\DashboardForJiraTasksAndCalendars-main`
-  to **`C:\Users\ASUS\Desktop\ProjectNest`**.
-- Scheduled Task "ProjectNest" updated to run `serve-prod.ps1` from new path.
-- Desktop shortcuts recreated pointing to new path.
-- Server restarted from new location — verified `http://localhost:8080` returns 200, dataset intact.
-
-### Current build
-- Bundle: `dist/assets/index-BYHJnLIO.js` (built 2026-06-21, 921 KB).
-- All 06-18 + 06-21 changes are live in production (:8080).
+## DONE (earlier)
+- Calendar page, Risk Dashboard, Delivery Flow panel, Temur scope-choice (page/global),
+  single-process server, login auth, watchdog, Scheduled Task, LAN/QR access.
 
 ---
 
-## DONE 2026-06-18 session
-- **Top Projects redesign** (`BestProjects.tsx`): ⓘ methodology popover, full name, stacked HEALTH label,
-  clickable rows → `openIssue`, Jira ↗ icon with `stopPropagation`.
-- **Delivery Flow segmented bars** (`WellnessChart.tsx`): `<SegmentedBar>` — seg=2.4, gap=3.6, rx=seg/2.
-- **EpicQualityModal mobile fix**: added `flexShrink: 0` to cards.
-- **Login creds**: admin credentials rotated (see `storage/auth.json`, gitignored).
-- **Build + deploy**: bundle `index-BsLnuH-x.js` (superseded by 2026-06-21 build).
-
-## DONE 2026-06-16 session
-- **New-epic Quality Alert**: ⚠️ header button, `EpicQualityModal`, `epic_quality` + `epic_problems` engine,
-  `recommend_epic_quality` in aria.py, `/api/epic-quality` + `/api/epic-quality-recommend` endpoints.
-  `description` field added to `normalize.py` (needed re-ingest).
-- **Mobile/tablet chart fix**: definite `height` on chart cards in App.tsx.
-
-## DONE (parallel session, between 06-16 and 06-18)
-- **`useBreakpoint.ts` mobile fix**: `setBp(get())` in `useEffect` + `orientationchange`.
-- **TTM collapse fix**: full re-ingest (PMD+PMO CSV + 2 History XLSX) after partial upload.
-- **Multi-file batch upload**: `uploadBatch` in portfolio.tsx, `<input multiple>`, progress badge.
-- **Status audit pipeline**: normalize.py records raw→canonical remaps; `/api/status-audit`; meta carries summary.
-- **LAN access debugged**: IP had changed from DHCP (192.168.1.x → 192.168.2.x).
-
-## DONE (earlier sessions)
-- Calendar page, Risk Dashboard, Delivery Flow panel, proportional sparklines, Temur scope-choice (page/global),
-  single-process server (SPA+API on :8080), login auth, watchdog, Scheduled Task, firewall.
-
----
-
-## NEXT (pending, no files/data yet)
-- **Product Teams TTM** — team = Jira project key, separate storage namespace, Classic⇄Product toggle.
-- **Status audit in UI** — badge/icon near DQ panel listing mixed/dead events from last ingest.
-- CSV+HTML hybrid name merge; Postgres + RBAC/SSO (enterprise scale) — later.
+## NEXT (pending, no work started)
+- **Epic-quality checks for new fields**: `epic_problems()` doesn't yet flag missing
+  justification/goals/DoD as quality issues (deliberately out of scope so far — only
+  RAG-grounding was requested; ask before extending).
+- **assignee/reporter identity resolution**: only pm/owner/change_leader are deduped
+  today; assignee/reporter could have the same email-vs-display-name split issue.
+- **One empty source file**: `knowladgebasefromdocs/politics/Politika po novim
+  produktam (1).pdf` was 0 bytes (bad copy) — user was asked to replace it; a NEWER
+  correctly-sized version WAS added and indexed (2026-07-05), but worth double-checking
+  nothing else in that folder is silently empty.
+- **Repo visibility**: still public on GitHub — flagged to the user, not yet changed.
+- **Uzbek patronymic-suffix names** in identity.py — documented gap, no action needed
+  unless a real duplicate surfaces.
+- Product Teams TTM, Postgres + RBAC/SSO — long-standing, not started.
 
 ---
 
 ## Gotchas
-- **Primary project path:** `C:\Users\ASUS\Desktop\ProjectNest` — always edit files here.
-- **Login case-sensitive:** `Admin` (capital A). PM logins: lowercase email e.g. `m.axmatov@ipakyulibank.uz`.
-- **Admin Panel** only appears for `role: admin` users (UserCog button in header, blue).
-- Python 3.14: stdlib only (+openpyxl). No pandas/pydantic/FastAPI.
-- After backend code change → restart server (kill :8080 python; watchdog relaunches in ≤15s).
-- After parser/normalize change → clear `storage/temp/cache/*.json` AND re-ingest.
-- **Without history XLSX, TTM phases collapse** (Delivery=0, Lead=0). Always pair CSV with history XLSX.
-- **Top Projects %** = `project_health` score (0–100), NOT completion. ⓘ popover exists for this reason.
-- `recharts` inside flex: `position:absolute; inset:0` child needs **definite `height`** on mobile (not just min-height).
-- Flex column scroll containers: child cards default `flex-shrink:1` → squash. Set `flexShrink: 0`.
-- `useTemurBesidePad()` returns full `padding` shorthand (avoid mixing with `paddingRight` longhand).
-- LAN IP from DHCP may change — always check with `Get-NetIPAddress -AddressFamily IPv4`.
-- Claude CLI for Temur: needs user host login → Scheduled Task AtLogOn (NOT SYSTEM, NOT Docker).
-- `serve-prod.ps1` uses `$MyInvocation.MyCommand.Path` → path-independent, works from any location.
+- **Primary project path:** `C:\Users\ASUS\Desktop\ProjectNest` — always edit here.
+- **:8080 split-brain**: see the ⚠️ note under "PRODUCTION model" above — check the
+  owning process's CommandLine FIRST whenever changes don't seem to apply.
+- **Parse-cache invalidation**: any `parser.py`/`normalize.py` field-shape change needs
+  a `_PARSE_SCHEMA` bump in `server.py`, or re-uploads of the same file silently keep
+  serving the old parsed shape.
+- **RAG rebuild cost**: full corpus (~870 issues) embed ≈ 40 min on this CPU-only
+  machine (~2.75s/embed). The incremental design means this only happens once after a
+  wide-reaching change (e.g. adding a new field to `_issue_doc()`); routine daily
+  uploads only re-embed the issues that actually changed.
+- **`knowladgebasefromdocs/`** contains confidential bank documents — gitignored, never
+  commit real files from it (only `README.md`/`.gitkeep` are tracked).
+- Login case-sensitive: `Admin` (capital A). PM logins: lowercase email.
+- Python 3.14: stdlib only (+openpyxl, pymupdf, python-docx, Pillow, pytesseract).
+- After backend code change → restart server (kill :8080 python; watchdog relaunches
+  in ≤5s).
+- **Without History XLSX, TTM phases collapse** (Delivery=0, Lead=0).
+- **Top Projects %** = `project_health` score (0–100), NOT completion.
+- `recharts` inside flex needs a **definite `height`** on mobile, not just min-height.
+- `useTemurBesidePad()` returns a full `padding` shorthand (don't mix with longhand).
+- Bash tool piping Cyrillic through `python -c "print(...)"` without
+  `PYTHONIOENCODING=utf-8` mangles terminal OUTPUT ONLY (cosmetic) — the underlying
+  JSON/UTF-8 data is fine; don't mistake this for a real bug when debugging via curl+python.
