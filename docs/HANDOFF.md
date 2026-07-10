@@ -68,7 +68,7 @@ non-history first, history last): PMD CSV (**replace**) → PMD HTML (**merge**)
   fields only**, never clobbers CSV data).
 - **Current active dataset** (as of 2026-07-10): ~870 issues / 139 epics / [PMD, PMO].
 - **After parser/normalize.py change → bump `_PARSE_SCHEMA` in `server.py`** (currently
-  `"v4-justification-goals-dod-bizeff-checklist"`) — the on-disk parse cache is keyed by
+  `"v5-owner-dept-unify-links-jsjunk-fix"`) — the on-disk parse cache is keyed by
   file-hash + this string; without bumping it, re-uploading the SAME file bytes silently
   serves the OLD parsed shape.
 - **Without History XLSX, TTM phases collapse** (Delivery=0, Lead=0).
@@ -83,7 +83,12 @@ project_type, regulator, division, scoring, quarterly_status, comments, links, h
 **Person/accountability fields (added 2026-07-05/06):**
 - `owner` — from **"Владелец"** (the important one; "ФИО владельца" only a fallback).
   This is who's accountable and who recommendations address action items to.
-- `owner_department` — PMO: `Подразделение заказчика`; PMD: `Epic Name` (project-aware).
+- `owner_department` — **`Подразделение заказчика`** (customer division), SAME source
+  for both PMD and PMO (confirmed 2026-07-10: PMD fills this on ~93% of rows too — an
+  earlier PMD-specific "Epic Name" fallback was removed, it produced garbage like a
+  feature name showing as if it were a department on the rare blank-division row).
+  UI shows ONE field labeled "Owner's department" (the old separate "Customer Division"
+  row was redundant with this and removed from `IssueDetailHost.tsx`).
 - `change_leader` — PMO: `Change leader`; PMD: `Approver`/`Approved by` (the stakeholder
   driving the item — used for the Change-Leaders analytics panel).
 
@@ -268,9 +273,10 @@ ANALYSIS).
    conversation memory, UI-state awareness, contextual refinement, "open them" (opens
    issue keys from Temur's own last answer), translit-Russian command support, fuzzy
    translit-tolerant topic search, faster watchdog (5s poll).
-5. **Owner/Owner's-department/Change-Leader fields**: read from Владелец/Подразделение
-   заказчика(PMO)-EpicName(PMD)/Change leader(PMO)-Approver(PMD); shown in issue popup;
-   embedded in RAG; recommendations address the owner by name.
+5. **Owner/Owner's-department/Change-Leader fields**: read from Владелец / Подразделение
+   заказчика (same field for both projects — see "Full field list" above, corrected
+   later same day) / Change leader(PMO)-Approver(PMD); shown in issue popup; embedded
+   in RAG; recommendations address the owner by name.
 6. **Person identity resolution** (`identity.py`): dedups PM/owner/change-leader name
    variants dataset-wide (see section above). Fixed a live-data bug (parse-cache didn't
    invalidate on schema change → served owner-less records after the code shipped).
@@ -285,6 +291,15 @@ ANALYSIS).
 10. Live dataset re-ingested with all of the above (870 issues / 139 epics); RAG fully
     rebuilt; verified end-to-end in browser (PMD-780 popup + grounded recommendation
     citing specific regulation sections).
+11. **owner_department unified with customer division** (see "Full field list" above)
+    — removed the buggy PMD-specific "Epic Name" fallback; dropped the now-redundant
+    "Customer Division" field row from `IssueDetailHost.tsx`.
+12. **Dependencies-field JS-junk bug fixed** (`normalize._get_links()`): matching was too
+    broad (`"link" in column_name`), catching the unrelated JSD field "Linked major
+    incidents" whose HTML export cell is an unrendered JS widget stub — was showing as
+    `depends on resourcePhaseCheckpoint.defer.then(() => WRM.require(...))` in the
+    popup. Narrowed to the real link-relationship column pattern + a defensive
+    JS-syntax value filter. Real Blocks/Depends/Relates links (364 issues) unaffected.
 
 ## DONE 2026-06-21 session
 - Multi-user auth + Admin Panel (`storage/auth.json` `{"users":[...]}` format, 20
