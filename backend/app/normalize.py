@@ -580,12 +580,13 @@ def normalize_rows(rows: list[dict], default_project: str = "") -> list[dict]:
         is_epic = itype.strip().lower() in config.EPIC_TYPES
         project = _get(row, "project") or default_project or key.split("-")[0]
         history = _parse_history(_get(row, "history"), created, resolved, status_c)
-        # Owner's org-structure unit = "Подразделение заказчика" (customer division).
-        # Same field, same meaning, for both PMD and PMO — confirmed filled on ~93%
-        # of PMD rows too, so no per-project fallback is needed (an earlier "Epic
-        # Name" fallback for PMD produced garbage — e.g. a feature name like "Payme
-        # QR" — on the rare row where division is genuinely blank; removed).
-        owner_dept = _get(row, "division")
+        # Owner's org-structure unit ("Подразделение владельца" in the UI). The bank
+        # writes this same concept under different fields depending on project/team
+        # habit — "Подразделение заказчика" (customer division, filled ~93% of PMD
+        # rows too) and, when that's blank, "Epic Name" (PMD-specific convention:
+        # this team repurposes it to record the owner's department rather than a
+        # literal epic title). Unify: prefer division, fall back to Epic Name.
+        owner_dept = _get(row, "division") or _get(row, "epic_name")
         issues.append({
             "key": key,
             "url": _get(row, "url"),
