@@ -238,6 +238,13 @@ def _ingest_path(path: Path, filename: str, mode: str = "replace"):
                     by_key[i["key"]] = i
             issues = list(by_key.values())
 
+    # Collapse name-string variants of the same PM/owner/change-leader (e.g.
+    # "O. Saidov" from an email-derived custom field vs "Ozod Saidov" from a
+    # display-name export) so the leaderboard / change-leaders / owner counts
+    # aren't split across duplicate rows for one human.
+    from app import identity
+    identity.resolve_identities(issues)
+
     payload = aggregate.build(issues)
     jira_base = ""
     for i in issues:
