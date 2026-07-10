@@ -42,6 +42,19 @@ _ALIASES = {
     # PMO → "Change leader", PMD → "Approver" / "Approved by".
     "change_leader": ["change leader", "approved by", "approver", "approvers",
                       "change managers", "лидер изменений"],
+    # Epic/new-feature "passport" fields — the WHY (justification/goals), the
+    # completion criteria (definition of done) and the expected business payoff.
+    # Grounds Temur's analysis in the item's own stated purpose, not just its
+    # Jira status. PMD-only in practice today but aliased generically.
+    "justification": ["обоснование", "justification"],
+    "goals": ["цели", "goals"],
+    "definition_of_done": ["задачи (definition of done)", "definition of done"],
+    "business_effectiveness": ["бизнес-эффективность", "бизнес–эффективность", "business effectiveness"],
+    # Smart Checklist: "...Progress" is a clean ratio ("6/6 - Done"); the plain
+    # "Smart Checklist" column is a verbose serialized object dump handled by
+    # _parse_smart_checklist() below — never stored raw.
+    "smart_checklist_progress": ["smart checklist progress"],
+    "smart_checklist_raw": ["smart checklist"],
     # NOTE: project/scoring CSV-specific aliases handled below
     "created": ["created", "created date", "creation date",
                 "создано", "дата создания", "yaratilgan", "yaratilgan sana"],
@@ -84,7 +97,13 @@ def _get(row: dict, field: str) -> str:
                 low[inner] = v
     for a in _ALIASES.get(field, [field]):
         if a in low and str(low[a]).strip():
-            return str(low[a]).strip()
+            v = str(low[a]).strip()
+            # Excel/Jira CSV export prefixes a cell with a literal leading "'" to
+            # force-text values that would otherwise look like a formula/number
+            # (very common on bullet lists starting with "- "). Strip that artifact.
+            if v.startswith("'") and len(v) > 1 and not v.startswith("''"):
+                v = v[1:]
+            return v
     return ""
 
 
@@ -120,6 +139,30 @@ def _clean_comment(s: str) -> str:
     s = re.sub(r"\[~[^\]]+\]", "@user", s)                          # user mentions
     s = re.sub(r"\s+", " ", s).strip()
     return s
+
+
+# Jira's Smart Checklist plugin exports each checklist as a verbose serialized
+# object dump, e.g.:
+#   Checklist(id=73240, issueId=186058, _items=[Item(id=7559, checklistId=73240,
+#   value=VSS, rank=0, status=Status(id=4, rank=3, statusState=CHECKED, name=DONE,
+#   color=GREEN, default=true, global=true, proj...), Item(...)])
+# We pull just (value, checked) pairs — the raw dump is too noisy for the UI or RAG.
+_SC_ITEM_RE = re.compile(r"value=(.*?),\s*rank=\d+,\s*status=Status\([^)]*?statusState=(\w+)", re.S)
+
+
+def _parse_smart_checklist(raw: str) -> str:
+    """Best-effort clean checklist item list ('✓ Item' / '○ Item' per line). If the
+    plugin's serialization format doesn't match, returns '' — the caller then falls
+    back to just the clean "Smart Checklist Progress" ratio."""
+    if not raw:
+        return ""
+    lines = []
+    for m in _SC_ITEM_RE.finditer(raw):
+        val = re.sub(r"\s+", " ", m.group(1)).strip()[:160]
+        checked = m.group(2).upper() in ("CHECKED", "DONE", "COMPLETE", "COMPLETED")
+        if val:
+            lines.append(f"{'✓' if checked else '○'} {val}")
+    return "\n".join(lines[:25])
 
 
 def _parse_comments(row: dict) -> list:
@@ -545,6 +588,12 @@ def normalize_rows(rows: list[dict], default_project: str = "") -> list[dict]:
             "owner": _pretty_person(_get(row, "owner")),
             "owner_department": owner_dept,
             "change_leader": _pretty_person(_get(row, "change_leader")),
+            "justification": _get(row, "justification"),
+            "goals": _get(row, "goals"),
+            "definition_of_done": _get(row, "definition_of_done"),
+            "business_effectiveness": _get(row, "business_effectiveness"),
+            "smart_checklist_progress": _get(row, "smart_checklist_progress"),
+            "smart_checklist_items": _parse_smart_checklist(_get(row, "smart_checklist_raw")),
             "created": _iso(created),
             "resolved": _iso(resolved),
             "due": _iso(due),

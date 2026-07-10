@@ -185,7 +185,7 @@ def _rebuild_rag_async():
 # Bump when parser.py / normalize.py change the shape of a parsed issue, so the
 # on-disk parse cache (keyed by file hash) auto-invalidates instead of serving
 # stale records missing new fields (e.g. the owner field added 2026-07-05).
-_PARSE_SCHEMA = "v3-owner-dept-changeleader"
+_PARSE_SCHEMA = "v4-justification-goals-dod-bizeff-checklist"
 
 
 def _ingest_path(path: Path, filename: str, mode: str = "replace"):

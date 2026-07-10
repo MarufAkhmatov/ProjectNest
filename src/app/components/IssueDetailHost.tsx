@@ -181,7 +181,29 @@ export function IssueDetailHost() {
                     {i.epic_key && <Field label={t("f_epic_link")} value={i.epic_key} link={jiraUrl(i.epic_key, "", base)} />}
                     {res.children?.length > 0 && <Field label={t("f_children")} value={res.children.length} />}
                     {i.links?.length > 0 && <Field label={t("f_dependencies")} value={i.links.map((l: any) => `${l.type} ${l.target}`).join(", ")} />}
+                    {i.smart_checklist_progress && <Field label={t("f_checklist_progress")} value={i.smart_checklist_progress} />}
                   </div>
+
+                  {/* Epic/new-feature "passport" fields — why it exists, what done means */}
+                  {[
+                    ["f_justification", i.justification],
+                    ["f_goals", i.goals],
+                    ["f_dod", i.definition_of_done],
+                    ["f_biz_effect", i.business_effectiveness],
+                  ].map(([labelKey, value]) => value ? (
+                    <div key={labelKey as string} style={{ marginTop: 16 }}>
+                      <div style={{ fontSize: "0.62rem", color: "var(--muted)", textTransform: "uppercase", letterSpacing: 0.4, marginBottom: 4 }}>{t(labelKey as string)}</div>
+                      <div style={{ fontSize: "0.74rem", color: "var(--soft)", lineHeight: 1.5, whiteSpace: "pre-wrap", maxHeight: 150, overflow: "auto", padding: 10, borderRadius: 8, background: "var(--surface2)" }}>{value as string}</div>
+                    </div>
+                  ) : null)}
+
+                  {/* Smart Checklist items (cleaned ✓/○ list) */}
+                  {i.smart_checklist_items && (
+                    <div style={{ marginTop: 16 }}>
+                      <div style={{ fontSize: "0.62rem", color: "var(--muted)", textTransform: "uppercase", letterSpacing: 0.4, marginBottom: 4 }}>{t("f_checklist_items")}</div>
+                      <div style={{ fontSize: "0.74rem", color: "var(--soft)", lineHeight: 1.7, whiteSpace: "pre-line", maxHeight: 150, overflow: "auto", padding: 10, borderRadius: 8, background: "var(--surface2)" }}>{i.smart_checklist_items}</div>
+                    </div>
+                  )}
 
                   {/* Quarterly status raw */}
                   {i.quarterly_status && (

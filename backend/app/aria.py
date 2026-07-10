@@ -420,6 +420,16 @@ def recommend_issue(issue: dict) -> dict:
         f"Age since created: {age if age is not None else 'unknown'} days",
         f"Days in the CURRENT stage: {stage_age if stage_age is not None else 'unknown'}",
     ]
+    if issue.get("justification"):
+        facts.append(f"Justification (Обоснование): {issue['justification'][:400]}")
+    if issue.get("goals"):
+        facts.append(f"Goals (Цели): {issue['goals'][:400]}")
+    if issue.get("definition_of_done"):
+        facts.append(f"Definition of Done: {issue['definition_of_done'][:400]}")
+    if issue.get("business_effectiveness"):
+        facts.append(f"Business effectiveness: {issue['business_effectiveness'][:400]}")
+    if issue.get("smart_checklist_progress"):
+        facts.append(f"Checklist progress: {issue['smart_checklist_progress']}")
     if _stuck:
         facts.append(
             f"STALLED: this item has sat {stage_age} days in the early '{status}' stage "
@@ -459,7 +469,8 @@ def recommend_issue(issue: dict) -> dict:
         from app import rag
         rb = rag.context_block(
             f"{issue.get('type','')} {issue.get('summary','')} "
-            "порядок управления проектами проектный комитет владелец этапы паспорт продукта", k=5)
+            "порядок управления проектами проектный комитет владелец этапы паспорт продукта",
+            k=5, kinds={"doc"})
         if rb:
             reg = "\n\nBANK REGULATIONS (official documents — the process the item MUST follow):\n" + rb
     except Exception:
@@ -1519,7 +1530,12 @@ def ask(question: str, payload: dict, lang: str = "en", scope: str = None, conte
                          f"OVERDUE by {overdue_days} days" if overdue_days else "",
                          ("Blocking dependencies: " + ", ".join(b.get("target", "?") for b in blockers))
                          if blockers else "No linked blockers recorded",
-                         f"Comments on record: {len(comments or [])}"]
+                         f"Comments on record: {len(comments or [])}",
+                         f"Justification (Обоснование): {iss['justification'][:400]}" if iss.get("justification") else "",
+                         f"Goals (Цели): {iss['goals'][:400]}" if iss.get("goals") else "",
+                         f"Definition of Done: {iss['definition_of_done'][:400]}" if iss.get("definition_of_done") else "",
+                         f"Business effectiveness: {iss['business_effectiveness'][:400]}" if iss.get("business_effectiveness") else "",
+                         f"Checklist progress: {iss['smart_checklist_progress']}" if iss.get("smart_checklist_progress") else ""]
                 issue_facts = ("\n\nFULL ISSUE RECORD (beyond the visible fields — use it to assess "
                                "the REAL state):\n" + "\n".join(l for l in lines if l)
                                + (f"\nQUARTERLY STATUS:\n{qs[:1500]}" if qs else "")
@@ -1529,7 +1545,8 @@ def ask(question: str, payload: dict, lang: str = "en", scope: str = None, conte
         try:
             from app import rag
             rb = rag.context_block((context[:200] +
-                  " порядок управления проектами проектный комитет владелец этапы"), k=4)
+                  " порядок управления проектами проектный комитет владелец этапы"),
+                  k=4, kinds={"doc"})
             if rb:
                 reg = "\n\nBANK REGULATIONS (official documents the item must comply with):\n" + rb
         except Exception:

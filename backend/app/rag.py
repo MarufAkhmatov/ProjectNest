@@ -70,6 +70,15 @@ def _issue_doc(i: dict) -> str:
             parts.append(f"{f}={i[f]}")
     if i.get("description"):
         parts.append(str(i["description"])[:400])
+    # Epic/new-feature "passport" fields — grounds retrieval in WHY the item
+    # exists and what "done" means for it, not just its current Jira status.
+    for label, key in (("justification", "justification"), ("goals", "goals"),
+                       ("definition_of_done", "definition_of_done"),
+                       ("business_effectiveness", "business_effectiveness")):
+        if i.get(key):
+            parts.append(f"{label}: " + str(i[key])[:300])
+    if i.get("smart_checklist_progress"):
+        parts.append(f"checklist_progress={i['smart_checklist_progress']}")
     return " | ".join(p for p in parts if p and not p.endswith("="))
 
 
@@ -227,15 +236,21 @@ def ready() -> bool:
     return bool(idx and idx.get("records"))
 
 
-def search(query: str, k: int = 6) -> list[dict]:
-    """Top-k most relevant corpus chunks for `query` (empty if index/Ollama down)."""
+def search(query: str, k: int = 6, kinds: set[str] | None = None) -> list[dict]:
+    """Top-k most relevant corpus chunks for `query` (empty if index/Ollama down).
+    kinds: optional filter (e.g. {"doc"}) to search only that record kind —
+    without it, [DOC]/[KB]/[ISSUE] all compete on relevance alone, so a query
+    that happens to closely match an issue's own text can crowd out regulation
+    chunks. Callers that specifically want bank-document grounding should pass
+    kinds={"doc"} rather than relying on query phrasing to bias retrieval."""
     idx = _load()
     if not idx or not idx.get("records"):
         return []
     qv = embed(query, timeout=30)
     if not qv:
         return []
-    scored = [(_cos(qv, r["vec"]), r) for r in idx["records"]]
+    records = idx["records"] if kinds is None else [r for r in idx["records"] if r.get("kind") in kinds]
+    scored = [(_cos(qv, r["vec"]), r) for r in records]
     scored.sort(key=lambda t: t[0], reverse=True)
     out = []
     for score, r in scored[:k]:
@@ -246,9 +261,9 @@ def search(query: str, k: int = 6) -> list[dict]:
     return out
 
 
-def context_block(query: str, k: int = 6) -> str:
+def context_block(query: str, k: int = 6, kinds: set[str] | None = None) -> str:
     """A ready-to-inject 'RETRIEVED' section for Temur's prompt."""
-    hits = search(query, k)
+    hits = search(query, k, kinds=kinds)
     if not hits:
         return ""
     lines = ["Most relevant records for this question (retrieved from the live data):"]
