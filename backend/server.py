@@ -132,7 +132,7 @@ def _check_token(tok: str):
         return None
 
 
-_rag_state = {"building": False, "last": None}
+_rag_state = {"building": False, "last": None, "pending": False}
 
 
 def _log_crash():
@@ -150,8 +150,15 @@ def _log_crash():
 
 
 def _rebuild_rag_async():
-    """Re-embed the active dataset for Temur's RAG, off the request thread."""
+    """Re-embed the active dataset for Temur's RAG, off the request thread.
+
+    Debounced: if a rebuild is requested while one is running (e.g. a batch of
+    5 uploads all fire it), we don't start a second thread — instead we set a
+    'pending' flag so the running build re-runs ONCE more at the end against the
+    now-final dataset. Without this, a batch upload would leave the index built
+    from only the first file's (partial) dataset."""
     if _rag_state["building"]:
+        _rag_state["pending"] = True
         return
     def work():
         _rag_state["building"] = True
@@ -159,14 +166,19 @@ def _rebuild_rag_async():
             from app import rag, aria
             if not aria.ollama_up():
                 return
-            data = storage.load_current()
-            if data and data.get("issues"):
-                res = rag.build_index(data["issues"])
-                _rag_state["last"] = res
+            while True:
+                _rag_state["pending"] = False
+                data = storage.load_current()
+                if data and data.get("issues"):
+                    res = rag.build_index(data["issues"])
+                    _rag_state["last"] = res
+                if not _rag_state["pending"]:
+                    break   # dataset didn't change during the build → done
         except Exception as e:
             _rag_state["last"] = {"error": str(e)}
         finally:
             _rag_state["building"] = False
+            _rag_state["pending"] = False
     threading.Thread(target=work, daemon=True).start()
 
 
