@@ -212,19 +212,32 @@ def _pm(row: dict) -> str:
     return _pretty_person(v)
 
 
+# Real Jira issue-link columns follow "Входящая связь задачи (Blocks|Cloners|Gantt
+# End to Start|Parent-Child|Relates|...)" / "Внешняя ссылка на проблему (...)" or the
+# plain English "Blocks"/"Blocked by". A bare "link"/"depend" substring match is too
+# broad — it also catches unrelated Jira Service Desk fields like "Linked major
+# incidents" (JSD-only, irrelevant to PMD/PMO), whose HTML export cell is often an
+# UNRENDERED JS WIDGET STUB (e.g. "resourcePhaseCheckpoint.defer.then(() =>
+# WRM.require('wrc!custom_field_jsd-linked-major-incidents'));") rather than real data.
+_LINK_COL_RE = re.compile(
+    r"^(?:входящая связь задачи|внешняя ссылка на проблему)\s*\(", re.I)
+_JS_JUNK_RE = re.compile(r"=>|WRM\.|function\s*\(|require\(|\.then\(", re.I)
+
+
 def _get_links(row: dict) -> list[dict]:
     out = []
     for k, v in row.items():
-        kl = k.lower()
+        kl = k.lower().strip()
         if not v:
             continue
-        if "blocks" in kl or "blocked" in kl or "depend" in kl or "link" in kl:
-            ltype = "blocks" if "blocks" in kl and "blocked" not in kl else (
-                "is blocked by" if "blocked" in kl else "depends on")
-            for target in str(v).split("|"):
-                target = target.strip()
-                if target:
-                    out.append({"type": ltype, "target": target})
+        if not (_LINK_COL_RE.match(kl) or "blocks" in kl or "blocked" in kl):
+            continue
+        ltype = "blocks" if "blocks" in kl and "blocked" not in kl else (
+            "is blocked by" if "blocked" in kl else "depends on")
+        for target in str(v).split("|"):
+            target = target.strip()
+            if target and not _JS_JUNK_RE.search(target):
+                out.append({"type": ltype, "target": target})
     return out
 
 
@@ -567,11 +580,12 @@ def normalize_rows(rows: list[dict], default_project: str = "") -> list[dict]:
         is_epic = itype.strip().lower() in config.EPIC_TYPES
         project = _get(row, "project") or default_project or key.split("-")[0]
         history = _parse_history(_get(row, "history"), created, resolved, status_c)
-        # Owner's org-structure unit: PMO writes it in "Подразделение заказчика",
-        # PMD writes it in "Epic Name" — pick per project.
+        # Owner's org-structure unit = "Подразделение заказчика" (customer division).
+        # Same field, same meaning, for both PMD and PMO — confirmed filled on ~93%
+        # of PMD rows too, so no per-project fallback is needed (an earlier "Epic
+        # Name" fallback for PMD produced garbage — e.g. a feature name like "Payme
+        # QR" — on the rare row where division is genuinely blank; removed).
         owner_dept = _get(row, "division")
-        if not owner_dept and project.upper().startswith("PMD"):
-            owner_dept = _get(row, "epic_name")
         issues.append({
             "key": key,
             "url": _get(row, "url"),

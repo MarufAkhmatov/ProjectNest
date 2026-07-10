@@ -171,7 +171,6 @@ export function IssueDetailHost() {
                     <Field label={t("f_reporter")} value={i.reporter} />
                     <Field label={t("f_priority")} value={i.priority} />
                     <Field label={t("f_project_type")} value={i.project_type} />
-                    <Field label={t("f_division")} value={i.division} />
                     <Field label={t("f_regulator")} value={i.regulator} />
                     <Field label={t("f_scoring")} value={i.scoring} />
                     <Field label={t("f_created")} value={(i.created || "").slice(0, 10)} />
