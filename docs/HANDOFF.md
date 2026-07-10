@@ -68,7 +68,7 @@ non-history first, history last): PMD CSV (**replace**) → PMD HTML (**merge**)
   fields only**, never clobbers CSV data).
 - **Current active dataset** (as of 2026-07-10): ~870 issues / 139 epics / [PMD, PMO].
 - **After parser/normalize.py change → bump `_PARSE_SCHEMA` in `server.py`** (currently
-  `"v5-owner-dept-unify-links-jsjunk-fix"`) — the on-disk parse cache is keyed by
+  `"v6-owner-dept-restore-epicname-fallback"`) — the on-disk parse cache is keyed by
   file-hash + this string; without bumping it, re-uploading the SAME file bytes silently
   serves the OLD parsed shape.
 - **Without History XLSX, TTM phases collapse** (Delivery=0, Lead=0).
@@ -83,12 +83,15 @@ project_type, regulator, division, scoring, quarterly_status, comments, links, h
 **Person/accountability fields (added 2026-07-05/06):**
 - `owner` — from **"Владелец"** (the important one; "ФИО владельца" only a fallback).
   This is who's accountable and who recommendations address action items to.
-- `owner_department` — **`Подразделение заказчика`** (customer division), SAME source
-  for both PMD and PMO (confirmed 2026-07-10: PMD fills this on ~93% of rows too — an
-  earlier PMD-specific "Epic Name" fallback was removed, it produced garbage like a
-  feature name showing as if it were a department on the rare blank-division row).
-  UI shows ONE field labeled "Owner's department" (the old separate "Customer Division"
-  row was redundant with this and removed from `IssueDetailHost.tsx`).
+- `owner_department` = `_get(row,"division")` ("Подразделение заказчика") **or**
+  `_get(row,"epic_name")` ("Epic Name") as fallback. Per the user (2026-07-10, confirmed
+  twice after an initial wrong guess): these — plus the concept "Подразделение
+  владельца" — are ALL the same thing in this bank's PMD workflow; PMD's team
+  repurposes "Epic Name" to hold the department when the division field is blank
+  (division IS filled on ~93% of PMD rows, but when it's not, Epic Name is the real
+  data, not noise — do NOT drop this fallback again without asking). UI shows ONE
+  unified field labeled "Owner's department" (the old separate "Customer Division"
+  row was redundant and removed from `IssueDetailHost.tsx`).
 - `change_leader` — PMO: `Change leader`; PMD: `Approver`/`Approved by` (the stakeholder
   driving the item — used for the Change-Leaders analytics panel).
 
@@ -300,6 +303,12 @@ ANALYSIS).
     `depends on resourcePhaseCheckpoint.defer.then(() => WRM.require(...))` in the
     popup. Narrowed to the real link-relationship column pattern + a defensive
     JS-syntax value filter. Real Blocks/Depends/Relates links (364 issues) unaffected.
+13. **owner_department correction reverted then re-fixed correctly**: item 11 above
+    initially DROPPED the Epic Name fallback (assumed it was noise from one example,
+    "Payme QR"). The user corrected this — Epic Name genuinely IS how PMD records the
+    department when division is blank; restored the fallback (division → epic_name).
+    Lesson: don't override the user's stated data-model knowledge based on a single
+    example that merely LOOKS wrong.
 
 ## DONE 2026-06-21 session
 - Multi-user auth + Admin Panel (`storage/auth.json` `{"users":[...]}` format, 20
